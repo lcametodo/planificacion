@@ -1,0 +1,2102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <!-- =================================================================
+       CONFIGURACIÓN  (lo único que necesitas editar)
+       Copia los datos de tu proyecto Supabase:
+       Dashboard → Project Settings → API (o "API Keys")
+       Si SUPABASE_URL queda vacío (""), la app arranca en MODO DEMO
+       con datos de ejemplo guardados solo en ese navegador.
+       ================================================================= -->
+  <script>
+    window.APP_CONFIG = {
+      SUPABASE_URL: https://iecfgpqnnsxmnmbxnfcp.supabase.co/rest/v1/,        // ej. "https://iecfgpqnnsxmnmbxnfcp.supabase.co/rest/v1/"
+      SUPABASE_ANON_KEY: sb_publishable_Mt2sdPIzEcfbKv15x4-JTQ_Tf6csjiH,   // clave "anon" o "publishable" (NUNCA la service_role)
+      APP_NAME: "Ruta Comercial",
+      CURRENCY_SYMBOL: "$",
+    };
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ruta Comercial</title>
+  <meta name="description" content="Planificación semanal y mensual de vendedores con seguimiento jerárquico.">
+  <meta name="theme-color" content="#14564A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Ruta Comercial">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314564A'/%3E%3Cg fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='9' cy='24' r='2.6'/%3E%3Ccircle cx='23' cy='8' r='2.6'/%3E%3Cpath d='M11.6 24H20a4 4 0 0 0 0-8h-8a4 4 0 0 1 0-8h8.4'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+/* ==========================================================
+   Ruta Comercial · estilos (mobile first)
+   Paleta corporativa Legrand (Management Summary)
+   ========================================================== */
+:root {
+  --green: #14564A;
+  --green-600: #1B6B5D;
+  --green-50: #E6F0ED;
+  --green-100: #CFE3DD;
+  --slate: #45616C;
+  --slate-50: #EBF0F2;
+  --brick: #B33A2B;
+  --brick-50: #F7E7E4;
+  --olive: #8A7B1F;
+  --olive-50: #F3F0DE;
+
+  --bg: #F3F5F4;
+  --surface: #FFFFFF;
+  --surface-2: #F8FAF9;
+  --line: #E1E7E5;
+  --ink: #16211F;
+  --ink-2: #4A5A57;
+  --ink-3: #7C8B88;
+  --shadow: 0 1px 2px rgba(20, 40, 36, .06), 0 4px 16px rgba(20, 40, 36, .06);
+  --shadow-lg: 0 10px 40px rgba(10, 30, 26, .18);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --nav-h: 68px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --green: #3FA38F; --green-600: #52B29E; --green-50: #16302B; --green-100: #1D3F38;
+    --slate: #8FA9B3; --slate-50: #1D2A2F;
+    --brick: #E0725F; --brick-50: #3A1F1B;
+    --olive: #C9B64A; --olive-50: #2E2A14;
+    --bg: #0E1413; --surface: #161E1C; --surface-2: #1B2422; --line: #27332F;
+    --ink: #E9EFED; --ink-2: #B3C1BD; --ink-3: #82928E;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --green: #3FA38F; --green-600: #52B29E; --green-50: #16302B; --green-100: #1D3F38;
+  --slate: #8FA9B3; --slate-50: #1D2A2F;
+  --brick: #E0725F; --brick-50: #3A1F1B;
+  --olive: #C9B64A; --olive-50: #2E2A14;
+  --bg: #0E1413; --surface: #161E1C; --surface-2: #1B2422; --line: #27332F;
+  --ink: #E9EFED; --ink-2: #B3C1BD; --ink-3: #82928E;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--green); }
+.hidden { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-3); }
+.small { font-size: 13px; }
+.xs { font-size: 12px; }
+.bold { font-weight: 700; }
+.row { display: flex; align-items: center; gap: 10px; }
+.row.between { justify-content: space-between; }
+.row.wrap { flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stack > * + * { margin-top: 12px; }
+.icon { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon.sm { width: 16px; height: 16px; }
+.icon.lg { width: 24px; height: 24px; }
+
+/* ---------- Layout ---------- */
+#app { min-height: 100vh; }
+.shell { display: flex; min-height: 100vh; }
+.main { flex: 1; min-width: 0; padding: 0 16px calc(var(--nav-h) + var(--safe-b) + 28px); }
+.page { max-width: 1120px; margin: 0 auto; }
+
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px 12px; margin: 0 -16px 8px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.topbar h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 20px; margin: 0; letter-spacing: -.01em; line-height: 1.2; }
+.topbar .sub { font-size: 13px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.01em; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  background: var(--green); color: #fff; display: grid; place-items: center;
+}
+.brand-mark svg { width: 20px; height: 20px; }
+
+/* Bottom nav (mobile) */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
+  display: flex; justify-content: space-around; align-items: stretch;
+  background: var(--surface); border-top: 1px solid var(--line);
+}
+.nav .brand, .nav .nav-foot { display: none; }
+.nav a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  color: var(--ink-3); text-decoration: none; font-size: 11px; font-weight: 600;
+}
+.nav a .pill { padding: 4px 16px; border-radius: 999px; transition: background .2s; }
+.nav a.active { color: var(--green); }
+.nav a.active .pill { background: var(--green-50); }
+
+/* Desktop sidebar */
+@media (min-width: 900px) {
+  .nav {
+    position: sticky; top: 0; height: 100vh; width: 240px; flex: none;
+    flex-direction: column; justify-content: flex-start; gap: 4px;
+    padding: 20px 14px; border-top: 0; border-right: 1px solid var(--line);
+  }
+  .nav .brand { display: flex; padding: 4px 8px 22px; }
+  .nav a { flex: none; flex-direction: row; justify-content: flex-start; gap: 12px; font-size: 14px; padding: 0; }
+  .nav a .pill { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border-radius: 12px; }
+  .nav a:hover .pill { background: var(--surface-2); }
+  .nav a.active .pill { background: var(--green-50); }
+  .nav a .lbl-inline { display: inline; }
+  .nav .nav-foot { display: block; margin-top: auto; padding: 12px 8px 0; border-top: 1px solid var(--line); }
+  .main { padding: 0 32px 48px; }
+  .topbar { margin: 0 -32px 12px; padding: 22px 32px 14px; }
+  .topbar h1 { font-size: 24px; }
+  .fab { bottom: 32px !important; right: 40px !important; }
+}
+.nav a .lbl-inline { display: none; }
+@media (min-width: 900px) { .nav a .lbl-stack { display: none; } .nav a .pill .lbl-inline { display: inline; } }
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px; border: 1px solid var(--line);
+}
+.card + .card { margin-top: 12px; }
+.card h3 { margin: 0 0 10px; font-size: 15px; letter-spacing: -.005em; }
+.section-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 22px 2px 10px; font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-3);
+}
+.section-title .count { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--ink-2); letter-spacing: 0; }
+
+.grid { display: grid; gap: 12px; }
+@media (min-width: 640px) { .grid.g2 { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) {
+  .grid.g3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.g4 { grid-template-columns: repeat(4, 1fr); }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+}
+.grid.g2m { grid-template-columns: 1fr 1fr; }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #14564A 0%, #1E6E5F 60%, #2B7E6D 100%);
+  color: #fff; border-radius: 24px; padding: 18px; box-shadow: var(--shadow);
+}
+.hero::after {
+  content: ""; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px;
+  border-radius: 50%; background: rgba(255,255,255,.07);
+}
+.hero .hero-top { display: flex; gap: 16px; align-items: center; position: relative; z-index: 1; }
+.hero .eyebrow { font-size: 12px; font-weight: 600; opacity: .8; text-transform: uppercase; letter-spacing: .08em; }
+.hero .big { font-size: 22px; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+.hero .meta { font-size: 13px; opacity: .85; }
+.hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; position: relative; z-index: 1; }
+.hero-stat { background: rgba(255,255,255,.12); border-radius: 14px; padding: 10px 12px; }
+.hero-stat .v { font-size: 18px; font-weight: 800; }
+.hero-stat .l { font-size: 11px; opacity: .85; }
+.hero-stat .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); margin-top: 6px; overflow: hidden; }
+.hero-stat .bar i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+
+/* ---------- Ring ---------- */
+.ring { position: relative; flex: none; display: grid; place-items: center; }
+.ring svg { transform: rotate(-90deg); display: block; }
+.ring .ring-label { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; font-weight: 800; line-height: 1; }
+.ring .ring-label small { display: block; font-size: 10px; font-weight: 600; opacity: .75; margin-top: 2px; }
+
+/* ---------- Week strip (vertical columns) ---------- */
+.weeks { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 14px; }
+.wk {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; padding: 10px 6px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0;
+  transition: border-color .15s, transform .15s;
+}
+.wk:active { transform: scale(.97); }
+.wk.sel { border-color: var(--green); background: var(--green-50); }
+.wk .wk-n { font-weight: 800; font-size: 14px; }
+.wk .wk-d { font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+.wk .col { width: 14px; height: 46px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.wk .col i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 4px 4px 0 0; background: var(--green); }
+.wk .wk-p { font-size: 11px; font-weight: 700; color: var(--ink-2); }
+.wk .now { font-size: 9px; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: .06em; }
+
+/* ---------- Tasks ---------- */
+.task {
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+}
+.task + .task { margin-top: 8px; }
+.task.done .t-title { text-decoration: line-through; color: var(--ink-3); }
+.check {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface);
+  display: grid; place-items: center; flex: none; color: transparent; transition: all .15s; padding: 0;
+}
+.check:hover { border-color: var(--green); }
+.check.on { background: var(--green); border-color: var(--green); color: #fff; }
+.check.half { border-color: var(--olive); background: var(--olive-50); color: var(--olive); }
+.check[disabled] { cursor: default; opacity: .6; }
+.t-body { flex: 1; min-width: 0; cursor: pointer; }
+.t-client { font-size: 12px; font-weight: 700; color: var(--green); display: flex; align-items: center; gap: 5px; }
+.t-title { font-weight: 600; margin-top: 1px; }
+.t-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.chip.green { background: var(--green-50); color: var(--green); border-color: transparent; }
+.chip.olive { background: var(--olive-50); color: var(--olive); border-color: transparent; }
+.chip.brick { background: var(--brick-50); color: var(--brick); border-color: transparent; }
+.chip.slate { background: var(--slate-50); color: var(--slate); border-color: transparent; }
+.mini-bar { height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; width: 56px; }
+.mini-bar i { display: block; height: 100%; background: var(--olive); }
+.mini-bar.full i { background: var(--green); }
+
+.empty {
+  text-align: center; padding: 28px 16px; color: var(--ink-3); background: var(--surface);
+  border: 1.5px dashed var(--line); border-radius: 16px;
+}
+.empty .e-ico { width: 44px; height: 44px; border-radius: 14px; background: var(--green-50); color: var(--green); display: grid; place-items: center; margin: 0 auto 10px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 12px; padding: 11px 16px; font-weight: 700; font-size: 14px;
+  background: var(--green); color: #fff; transition: filter .15s, transform .1s; min-height: 44px;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: scale(.98); }
+.btn[disabled] { opacity: .55; pointer-events: none; }
+.btn.ghost { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.btn.soft { background: var(--green-50); color: var(--green); }
+.btn.danger { background: var(--brick-50); color: var(--brick); }
+.btn.block { width: 100%; }
+.btn.sm { padding: 7px 12px; min-height: 36px; font-size: 13px; border-radius: 10px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+  display: grid; place-items: center; color: var(--ink-2); flex: none; padding: 0;
+}
+.icon-btn:hover { color: var(--green); border-color: var(--green-100); }
+.fab {
+  position: fixed; right: 18px; bottom: calc(var(--nav-h) + var(--safe-b) + 16px); z-index: 25;
+  width: 58px; height: 58px; border-radius: 18px; border: 0; background: var(--green); color: #fff;
+  display: grid; place-items: center; box-shadow: 0 8px 24px rgba(20, 86, 74, .4);
+}
+.fab .icon { width: 26px; height: 26px; }
+
+/* Month switcher */
+.month-sw { display: inline-flex; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.month-sw button { border: 0; background: transparent; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: var(--ink-2); padding: 0; }
+.month-sw button:hover { background: var(--surface-2); }
+.month-sw span { font-weight: 700; font-size: 13px; padding: 0 6px; min-width: 92px; text-align: center; text-transform: capitalize; }
+
+/* Subject banner */
+.viewing {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px;
+  background: var(--slate-50); color: var(--slate); font-size: 13px; font-weight: 600; margin-bottom: 12px;
+}
+.viewing .grow { color: var(--ink); }
+
+/* ---------- Forms ---------- */
+.field { display: block; }
+.field + .field { margin-top: 14px; }
+.field > span { display: block; font-size: 12px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
+.input, .select, .textarea {
+  width: 100%; border: 1.5px solid var(--line); background: var(--surface-2); border-radius: 12px;
+  padding: 11px 12px; font-size: 16px; outline: none; transition: border-color .15s, background .15s; min-height: 46px;
+}
+.textarea { min-height: 84px; resize: vertical; }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--green); background: var(--surface); }
+.input[readonly] { color: var(--ink-3); }
+.money { position: relative; }
+.money::before { content: "$"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-weight: 600; }
+.money .input { padding-left: 24px; }
+.seg { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.seg button { flex: 1; border: 0; background: transparent; padding: 8px 6px; border-radius: 9px; font-weight: 700; font-size: 13px; color: var(--ink-2); min-height: 38px; }
+.seg button.on { background: var(--surface); color: var(--green); box-shadow: var(--shadow); }
+.seg.sm button { padding: 5px 4px; font-size: 12px; min-height: 32px; }
+.seg button.on.brick { color: var(--brick); }
+.seg button.on.olive { color: var(--olive); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn {
+  border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 13px;
+  font-size: 13px; font-weight: 600; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; min-height: 38px;
+}
+.chip-btn.on { border-color: var(--green); background: var(--green-50); color: var(--green); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+.switch input { appearance: none; width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; transition: background .2s; flex: none; margin: 0; cursor: pointer; }
+.switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.switch input:checked { background: var(--green); }
+.switch input:checked::after { transform: translateX(18px); }
+.form-actions { display: flex; gap: 10px; margin-top: 20px; }
+.form-actions .btn { flex: 1; }
+.error-msg { color: var(--brick); font-size: 13px; font-weight: 600; margin-top: 10px; }
+
+/* ---------- Sheet / modal ---------- */
+.backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(8, 20, 18, .45); opacity: 0; transition: opacity .2s; }
+.backdrop.show { opacity: 1; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; max-height: 92vh; display: flex; flex-direction: column;
+  background: var(--surface); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-lg);
+  transform: translateY(100%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+}
+.sheet.show { transform: none; }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 10px auto 0; flex: none; }
+.sheet .sheet-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px 10px; flex: none; }
+.sheet .sheet-head h2 { font-size: 18px; margin: 0; flex: 1; letter-spacing: -.01em; }
+.sheet .sheet-body { overflow-y: auto; padding: 4px 18px calc(22px + var(--safe-b)); -webkit-overflow-scrolling: touch; }
+.sheet .sheet-foot { flex: none; padding: 12px 18px calc(12px + var(--safe-b)); border-top: 1px solid var(--line); display: flex; gap: 10px; }
+.sheet .sheet-foot .btn { flex: 1; }
+@media (min-width: 700px) {
+  .sheet { left: 50%; right: auto; bottom: auto; top: 50%; width: 560px; max-height: 86vh; border-radius: 24px; transform: translate(-50%, -46%) scale(.97); opacity: 0; transition: transform .22s, opacity .22s; }
+  .sheet.show { transform: translate(-50%, -50%); opacity: 1; }
+  .sheet.wide { width: 720px; }
+  .sheet .grab { display: none; }
+}
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--nav-h) + var(--safe-b) + 20px); z-index: 80;
+  transform: translate(-50%, 20px); opacity: 0; transition: all .25s;
+  background: var(--ink); color: var(--bg); padding: 11px 18px; border-radius: 14px; font-weight: 600; font-size: 14px;
+  box-shadow: var(--shadow-lg); max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 8px;
+}
+.toast.show { transform: translate(-50%, 0); opacity: 1; }
+.toast.err { background: var(--brick); color: #fff; }
+
+/* ---------- KPI tiles ---------- */
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); min-width: 0; }
+.kpi .k-l { font-size: 12px; font-weight: 700; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.kpi .k-v { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin-top: 4px; }
+.kpi .k-s { font-size: 12px; color: var(--ink-3); }
+.bar { height: 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; margin-top: 8px; }
+.bar i { display: block; height: 100%; border-radius: 4px; background: var(--green); transition: width .4s; }
+.bar.olive i { background: var(--olive); }
+.bar.brick i { background: var(--brick); }
+
+/* ---------- Status pill (semáforo: icono + etiqueta) ---------- */
+.status { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.status.ok { background: var(--green-50); color: var(--green); }
+.status.warn { background: var(--olive-50); color: var(--olive); }
+.status.bad { background: var(--brick-50); color: var(--brick); }
+.status .icon { width: 13px; height: 13px; stroke-width: 2.6; }
+
+/* ---------- Team ---------- */
+.person {
+  display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 16px; box-shadow: var(--shadow); cursor: pointer; transition: border-color .15s, transform .1s; min-width: 0;
+}
+.person:hover { border-color: var(--green-100); }
+.person:active { transform: scale(.99); }
+.avatar {
+  width: 42px; height: 42px; border-radius: 14px; flex: none; display: grid; place-items: center;
+  font-weight: 800; font-size: 14px; background: var(--green-50); color: var(--green);
+}
+.avatar.lg { width: 64px; height: 64px; border-radius: 20px; font-size: 22px; }
+.avatar.r-director_general { background: var(--green); color: #fff; }
+.avatar.r-director { background: var(--slate-50); color: var(--slate); }
+.avatar.r-gerente { background: var(--olive-50); color: var(--olive); }
+.p-name { font-weight: 700; }
+.p-role { font-size: 12px; color: var(--ink-3); }
+.p-stats { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+.group { margin-top: 18px; }
+.group-head { display: flex; align-items: center; gap: 10px; margin: 0 2px 10px; }
+.group-head .line { flex: 1; height: 1px; background: var(--line); }
+.group-children { padding-left: 14px; border-left: 2px solid var(--line); margin-left: 20px; }
+.group-children .grid { gap: 8px; }
+
+/* ---------- Plan ---------- */
+.week-acc { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.week-acc + .week-acc { margin-top: 10px; }
+.week-acc > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 14px; cursor: pointer; }
+.week-acc > summary::-webkit-details-marker { display: none; }
+.week-acc > summary .chev { transition: transform .2s; color: var(--ink-3); }
+.week-acc[open] > summary .chev { transform: rotate(90deg); }
+.week-acc .wa-body { padding: 0 14px 16px; border-top: 1px solid var(--line); }
+.wk-badge { width: 40px; height: 40px; border-radius: 12px; background: var(--green-50); color: var(--green); display: grid; place-items: center; font-weight: 800; flex: none; }
+.wk-badge.cur { background: var(--green); color: #fff; }
+.tbl-row { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.tbl-row:last-child { border-bottom: 0; }
+.ind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 640px) { .ind-grid { grid-template-columns: repeat(4, 1fr); } }
+.ind-grid .field + .field { margin-top: 0; }
+.chart-card svg { display: block; width: 100%; height: auto; }
+.chart-tip { position: fixed; z-index: 90; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 600; padding: 6px 9px; border-radius: 8px; opacity: 0; transition: opacity .1s; white-space: nowrap; }
+.risk { display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.risk + .risk { margin-top: 8px; }
+.risk.resolved { opacity: .6; }
+.risk .r-bar { width: 4px; border-radius: 2px; flex: none; }
+
+/* ---------- Checklist (Plantilla 3) ---------- */
+.ck-section { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: var(--surface); }
+.ck-section + .ck-section { margin-top: 12px; }
+.ck-section h4 { margin: 0 0 4px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.ck-section .hint { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
+.ck-item { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px dashed var(--line); cursor: pointer; user-select: none; }
+.ck-item:last-child { border-bottom: 0; }
+.ck-item .box { width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--line); display: grid; place-items: center; flex: none; color: transparent; transition: all .15s; }
+.ck-item.on .box { background: var(--green); border-color: var(--green); color: #fff; }
+.ck-item.on .lbl { color: var(--ink-2); }
+.ck-steps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; scrollbar-width: none; }
+.ck-steps::-webkit-scrollbar { display: none; }
+.ck-steps a { flex: none; font-size: 12px; font-weight: 700; padding: 6px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+.ck-steps a .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.ck-steps a.done .dot { background: var(--green); }
+.smart-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; }
+.smart-row .seg { width: 190px; flex: none; }
+
+/* ---------- Login ---------- */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background:
+  radial-gradient(1200px 500px at 10% -10%, var(--green-100), transparent 60%),
+  radial-gradient(800px 400px at 110% 110%, var(--olive-50), transparent 60%), var(--bg); }
+.login-card { width: 100%; max-width: 400px; background: var(--surface); border-radius: 28px; padding: 28px 22px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); }
+.login-card h1 { font-size: 24px; margin: 18px 0 4px; letter-spacing: -.02em; }
+.demo-users { display: grid; gap: 8px; margin-top: 10px; }
+.demo-user { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); text-align: left; }
+.demo-user:hover { border-color: var(--green); }
+.demo-note { background: var(--olive-50); color: var(--olive); border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 600; margin-top: 18px; }
+
+/* ---------- Admin ---------- */
+.search { position: relative; }
+.search .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); }
+.search .input { padding-left: 40px; }
+.user-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+.user-row + .user-row { border-top: 1px solid var(--line); }
+.user-row:hover { background: var(--surface-2); }
+.list-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.tree ul { list-style: none; margin: 0; padding-left: 22px; border-left: 2px solid var(--line); margin-left: 20px; }
+.tree > ul { padding-left: 0; border: 0; margin-left: 0; }
+.tree li { padding: 5px 0; }
+.tree .node { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); cursor: pointer; }
+.tree .node .avatar { width: 32px; height: 32px; border-radius: 10px; font-size: 12px; }
+.temp-pass { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: .04em; background: var(--green-50); color: var(--green); border-radius: 12px; padding: 14px; text-align: center; user-select: all; }
+
+.spinner { width: 28px; height: 28px; border: 3px solid var(--green-100); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; margin: 60px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.check.on .icon { animation: pop .3s; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.confirm-wrap { position: fixed; inset: 0; z-index: 70; background: rgba(8, 20, 18, .45); display: grid; place-items: center; padding: 16px; }
+.confirm-box { width: 100%; max-width: 380px; background: var(--surface); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); }
+
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+/* ---- dates.js ---- */
+// Utilidades de fechas: semanas del mes (lunes a domingo, recortadas al mes).
+// Si la primera semana solo tiene sábado/domingo, se une a la siguiente.
+(function () {
+  const pad = (n) => String(n).padStart(2, "0");
+  const monthKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+  const parse = (s) => { const [y, m, d] = s.slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d || 1); };
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  function weeksOfMonth(mk) {
+    const first = parse(mk), y = first.getFullYear(), m = first.getMonth();
+    const last = new Date(y, m + 1, 0).getDate();
+    const segs = [];
+    let d = 1;
+    while (d <= last) {
+      const dow = (new Date(y, m, d).getDay() + 6) % 7; // 0 = lunes
+      const end = Math.min(last, d + (6 - dow));
+      segs.push({ s: d, e: end, startDow: dow });
+      d = end + 1;
+    }
+    if (segs.length > 1 && segs[0].startDow >= 5) { segs[1].s = segs[0].s; segs.shift(); }
+    return segs.map((g, i) => ({ no: i + 1, start: new Date(y, m, g.s), end: new Date(y, m, g.e) }));
+  }
+
+  function weekNoOf(date) {
+    const w = weeksOfMonth(monthKey(date));
+    const f = w.find((x) => date >= x.start && date <= new Date(x.end.getFullYear(), x.end.getMonth(), x.end.getDate(), 23, 59, 59));
+    return f ? f.no : 1;
+  }
+
+  // Fracción transcurrida (0..1) de un rango de días hábiles, para el ritmo esperado
+  function elapsedFraction(start, end, now = new Date()) {
+    const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const s = day(start), e = day(end), n = day(now);
+    if (n < s) return 0;
+    if (n > e) return 1;
+    let total = 0, done = 0;
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      const wd = d.getDay() !== 0 && d.getDay() !== 6;
+      if (!wd) continue;
+      total++;
+      if (d < n) done++;
+      else if (+d === +n) done += 0.5;
+    }
+    return total ? done / total : 1;
+  }
+
+  const MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const MES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const monthLabel = (mk) => { const d = parse(mk); return `${MES[d.getMonth()]} ${d.getFullYear()}`; };
+  const rangeLabel = (w) => `${w.start.getDate()}–${w.end.getDate()} ${MES_C[w.end.getMonth()]}`;
+  const shortDate = (s) => { if (!s) return ""; const d = parse(s); return `${d.getDate()} ${MES_C[d.getMonth()]}`; };
+  const addMonths = (mk, n) => { const d = parse(mk); return monthKey(new Date(d.getFullYear(), d.getMonth() + n, 1)); };
+
+  window.RC_DATES = { pad, monthKey, parse, iso, weeksOfMonth, weekNoOf, elapsedFraction, monthLabel, rangeLabel, shortDate, addMonths, MES };
+})();
+
+  </script>
+  <script>
+/* ---- api.js ---- */
+// =====================================================================
+//  Capa de datos: Supabase (producción) o Demo (localStorage)
+//  Ambas exponen exactamente la misma interfaz.
+// =====================================================================
+(function () {
+  const CFG = window.APP_CONFIG || {};
+  const RANK = { director_general: 4, director: 3, gerente: 2, vendedor: 1 };
+
+  // -------------------------------------------------------------------
+  //  SUPABASE
+  // -------------------------------------------------------------------
+  function SupabaseApi() {
+    const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
+    let uid = null;
+    const ok = ({ data, error }) => { if (error) throw new Error(traducir(error.message)); return data; };
+
+    function traducir(m) {
+      if (/Invalid login credentials/i.test(m)) return "Correo o contraseña incorrectos";
+      if (/row-level security/i.test(m)) return "No tienes permiso para esta acción";
+      if (/banned/i.test(m)) return "Tu usuario está desactivado. Contacta al administrador.";
+      if (/should be different/i.test(m)) return "La nueva contraseña debe ser diferente a la anterior";
+      return m;
+    }
+
+    return {
+      mode: "supabase",
+      async init() {
+        const { data } = await sb.auth.getSession();
+        uid = data.session?.user?.id || null;
+        return uid;
+      },
+      onSignedOut(cb) {
+        sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") cb(); });
+      },
+      async signIn(email, password) {
+        const d = ok(await sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }));
+        uid = d.user.id; return uid;
+      },
+      async signOut() { await sb.auth.signOut(); uid = null; },
+      async changePassword(password) {
+        ok(await sb.auth.updateUser({ password }));
+        ok(await sb.rpc("clear_must_change_password"));
+      },
+      async getMe() {
+        return ok(await sb.from("profiles").select("*").eq("id", uid).single());
+      },
+      async listProfiles() {
+        return ok(await sb.from("profiles").select("*").order("full_name"));
+      },
+      async listTasks(month) {
+        return ok(await sb.from("tasks").select("*").eq("month", month).order("created_at"));
+      },
+      async saveTask(t) {
+        const cols = ["owner_id", "period", "month", "week_no", "task_type", "client", "title", "objective", "due_date", "status", "checklist"];
+        const row = {}; cols.forEach((c) => { if (c in t) row[c] = t[c] === "" ? null : t[c]; });
+        if (t.id) return ok(await sb.from("tasks").update(row).eq("id", t.id).select().single());
+        return ok(await sb.from("tasks").insert(row).select().single());
+      },
+      async deleteTask(id) {
+        const d = ok(await sb.from("tasks").delete().eq("id", id).select());
+        if (!d.length) throw new Error("No tienes permiso para eliminar esta tarea");
+      },
+      async listPlans(month) {
+        return ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)").eq("month", month));
+      },
+      async ensurePlan(ownerId, month) {
+        const found = ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)")
+          .eq("owner_id", ownerId).eq("month", month).maybeSingle());
+        if (found) return found;
+        const created = ok(await sb.from("monthly_plans").insert({ owner_id: ownerId, month }).select().single());
+        return { ...created, plan_weeks: [], plan_risks: [] };
+      },
+      async updatePlan(id, patch) {
+        return ok(await sb.from("monthly_plans").update(patch).eq("id", id).select().single());
+      },
+      async upsertWeek(planId, weekNo, patch) {
+        return ok(await sb.from("plan_weeks").upsert({ plan_id: planId, week_no: weekNo, ...patch }, { onConflict: "plan_id,week_no" }).select().single());
+      },
+      async saveRisk(r) {
+        const row = { plan_id: r.plan_id, description: r.description, impact: r.impact, mitigation: r.mitigation || null, due_date: r.due_date || null, resolved: !!r.resolved };
+        if (r.id) return ok(await sb.from("plan_risks").update(row).eq("id", r.id).select().single());
+        return ok(await sb.from("plan_risks").insert(row).select().single());
+      },
+      async deleteRisk(id) { ok(await sb.from("plan_risks").delete().eq("id", id)); },
+      async updateProfile(id, patch) {
+        return ok(await sb.from("profiles").update(patch).eq("id", id).select().single());
+      },
+      async admin(action, payload) {
+        const { data, error } = await sb.functions.invoke("admin-users", { body: { action, ...payload } });
+        if (error) {
+          let msg = error.message;
+          try { const j = await error.context.json(); if (j?.error) msg = j.error; } catch (_) { /* noop */ }
+          throw new Error(msg);
+        }
+        if (data?.error) throw new Error(data.error);
+        return data;
+      },
+    };
+  }
+
+  // -------------------------------------------------------------------
+  //  DEMO (localStorage, con las mismas reglas de seguridad)
+  // -------------------------------------------------------------------
+  function DemoApi() {
+    const KEY = "rutacomercial_demo_v1";
+    let db = null, uid = null;
+    const mem = {};
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch (_) { return mem[k] ?? null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch (_) { mem[k] = v; } },
+      del(k) { try { localStorage.removeItem(k); } catch (_) { delete mem[k]; } },
+    };
+    const save = () => store.set(KEY, JSON.stringify(db));
+    const id = () => (crypto.randomUUID ? crypto.randomUUID() : "id-" + Math.random().toString(36).slice(2));
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    const me = () => db.profiles.find((p) => p.id === uid);
+    const P = (i) => db.profiles.find((p) => p.id === i);
+
+    function isUnder(child, boss) {
+      let cur = P(child), n = 0;
+      while (cur && cur.manager_id && n++ < 12) { if (cur.manager_id === boss) return true; cur = P(cur.manager_id); }
+      return false;
+    }
+    const canSee = (t) => { const m = me(); return !!m && (t === m.id || m.is_admin || m.role === "director_general" || isUnder(t, m.id)); };
+    const canManage = (t) => { const m = me(); return !!m && (t === m.id || m.role === "director_general" || isUnder(t, m.id)); };
+    const deny = () => { throw new Error("No tienes permiso para esta acción"); };
+    const withPlan = (p) => ({ ...clone(p), plan_weeks: clone(db.weeks.filter((w) => w.plan_id === p.id)), plan_risks: clone(db.risks.filter((r) => r.plan_id === p.id)) });
+
+    function load() {
+      const raw = store.get(KEY);
+      db = raw ? JSON.parse(raw) : seed();
+      if (!raw) save();
+      uid = store.get(KEY + "_uid");
+      if (uid && !P(uid)) uid = null;
+    }
+
+    return {
+      mode: "demo",
+      async init() { load(); return uid; },
+      onSignedOut() {},
+      demoUsers() { return clone(db.profiles.filter((p) => p.active)); },
+      resetDemo() { store.del(KEY); store.del(KEY + "_uid"); load(); },
+      async signIn(email) {
+        const p = db.profiles.find((x) => x.email === email.trim().toLowerCase());
+        if (!p) throw new Error("Usuario no encontrado (modo demo)");
+        if (!p.active) throw new Error("Tu usuario está desactivado. Contacta al administrador.");
+        uid = p.id; store.set(KEY + "_uid", uid); return uid;
+      },
+      async signOut() { uid = null; store.del(KEY + "_uid"); },
+      async changePassword() { me().must_change_password = false; save(); },
+      async getMe() { return clone(me()); },
+      async listProfiles() {
+        return clone(db.profiles.filter((p) => canSee(p.id) || isUnder(uid, p.id)).sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      },
+      async listTasks(month) { return clone(db.tasks.filter((t) => t.month === month && canSee(t.owner_id))); },
+      async saveTask(t) {
+        if (!canManage(t.owner_id)) deny();
+        const now = new Date().toISOString();
+        if (t.id) {
+          const cur = db.tasks.find((x) => x.id === t.id);
+          if (!cur || !canManage(cur.owner_id)) deny();
+          const wasDone = cur.status === "completada";
+          Object.assign(cur, t, { created_by: cur.created_by, updated_at: now });
+          if (cur.status === "completada" && !wasDone) cur.completed_at = now;
+          if (cur.status !== "completada") cur.completed_at = null;
+          if (cur.period === "mensual") cur.week_no = null;
+          save(); return clone(cur);
+        }
+        const row = { checklist: {}, status: "pendiente", task_type: "visita", period: "semanal", ...t, id: id(), created_by: uid, created_at: now, updated_at: now };
+        row.completed_at = row.status === "completada" ? now : null;
+        if (row.period === "mensual") row.week_no = null;
+        db.tasks.push(row); save(); return clone(row);
+      },
+      async deleteTask(tid) {
+        const t = db.tasks.find((x) => x.id === tid);
+        if (!t || !canManage(t.owner_id) || !(t.created_by === uid || t.owner_id !== uid)) throw new Error("No tienes permiso para eliminar esta tarea");
+        db.tasks = db.tasks.filter((x) => x.id !== tid); save();
+      },
+      async listPlans(month) { return db.plans.filter((p) => p.month === month && canSee(p.owner_id)).map(withPlan); },
+      async ensurePlan(ownerId, month) {
+        let p = db.plans.find((x) => x.owner_id === ownerId && x.month === month);
+        if (p) { if (!canSee(ownerId)) deny(); return withPlan(p); }
+        if (!canManage(ownerId)) deny();
+        p = { id: id(), owner_id: ownerId, month, territory: P(ownerId)?.territory || "", goal_amount: 0, notes: "" };
+        db.plans.push(p); save(); return withPlan(p);
+      },
+      async updatePlan(pid, patch) {
+        const p = db.plans.find((x) => x.id === pid); if (!p || !canManage(p.owner_id)) deny();
+        Object.assign(p, patch); save(); return clone(p);
+      },
+      async upsertWeek(planId, weekNo, patch) {
+        const p = db.plans.find((x) => x.id === planId); if (!p || !canManage(p.owner_id)) deny();
+        let w = db.weeks.find((x) => x.plan_id === planId && x.week_no === weekNo);
+        if (!w) { w = { id: id(), plan_id: planId, week_no: weekNo }; db.weeks.push(w); }
+        Object.assign(w, patch); save(); return clone(w);
+      },
+      async saveRisk(r) {
+        const p = db.plans.find((x) => x.id === r.plan_id); if (!p || !canManage(p.owner_id)) deny();
+        if (r.id) { const cur = db.risks.find((x) => x.id === r.id); Object.assign(cur, r); save(); return clone(cur); }
+        const row = { ...r, id: id(), created_by: uid, created_at: new Date().toISOString() };
+        db.risks.push(row); save(); return clone(row);
+      },
+      async deleteRisk(rid) {
+        const r = db.risks.find((x) => x.id === rid); const p = r && db.plans.find((x) => x.id === r.plan_id);
+        if (!p || !canManage(p.owner_id)) deny();
+        db.risks = db.risks.filter((x) => x.id !== rid); save();
+      },
+      async updateProfile(pid, patch) {
+        const m = me(); const p = P(pid);
+        if (!m.is_admin && (pid !== uid || Object.keys(patch).some((k) => k !== "full_name"))) deny();
+        const next = { ...p, ...patch };
+        if (next.manager_id) {
+          const mg = P(next.manager_id);
+          if (RANK[mg.role] <= RANK[next.role]) throw new Error("El jefe asignado debe tener un rol superior");
+          if (next.manager_id === pid || isUnder(next.manager_id, pid)) throw new Error("Asignación circular de jefatura");
+        }
+        if (next.role !== p.role && db.profiles.some((c) => c.manager_id === pid && RANK[c.role] >= RANK[next.role]))
+          throw new Error("Este usuario tiene personas a cargo con un rol igual o superior al nuevo; reasígnalas primero");
+        if (p.is_admin && (!next.is_admin || !next.active) && !db.profiles.some((x) => x.id !== pid && x.is_admin && x.active))
+          throw new Error("Debe existir al menos un administrador activo");
+        Object.assign(p, patch); save(); return clone(p);
+      },
+      async admin(action, b) {
+        if (!me().is_admin) throw new Error("Solo el administrador puede hacer esto");
+        if (action === "create") {
+          const email = String(b.email || "").trim().toLowerCase();
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("Correo inválido");
+          if (db.profiles.some((p) => p.email === email)) throw new Error("Ya existe un usuario con ese correo");
+          if ((b.password || "").length < 8) throw new Error("La contraseña debe tener al menos 8 caracteres");
+          const p = { id: id(), email, full_name: b.full_name || email.split("@")[0], role: b.role, manager_id: b.manager_id || null, territory: b.territory || null, is_admin: false, active: true, must_change_password: true };
+          db.profiles.push(p); save(); return { ok: true, id: p.id };
+        }
+        if (action === "reset_password") { P(b.user_id).must_change_password = true; save(); return { ok: true }; }
+        if (action === "set_active") {
+          if (b.user_id === uid && !b.active) throw new Error("No puedes desactivarte a ti mismo");
+          P(b.user_id).active = !!b.active; save(); return { ok: true };
+        }
+        if (action === "delete") {
+          if (b.user_id === uid) throw new Error("No puedes eliminar tu propio usuario");
+          const t = P(b.user_id);
+          db.profiles.forEach((p) => { if (p.manager_id === t.id) p.manager_id = t.manager_id; });
+          db.profiles = db.profiles.filter((p) => p.id !== t.id);
+          db.tasks = db.tasks.filter((x) => x.owner_id !== t.id);
+          save(); return { ok: true };
+        }
+        throw new Error("Acción desconocida");
+      },
+    };
+  }
+
+  // -------------------------------------------------------------------
+  //  Datos de ejemplo del modo demo
+  // -------------------------------------------------------------------
+  function seed() {
+    let s = 7;
+    const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    const pick = (a) => a[Math.floor(rnd() * a.length)];
+    const uuid = () => "d" + Math.floor(rnd() * 1e12).toString(36) + Math.floor(rnd() * 1e12).toString(36);
+    const U = (email, full_name, role, manager_id, territory, extra = {}) =>
+      ({ id: uuid(), email, full_name, role, manager_id, territory, is_admin: false, active: true, must_change_password: false, ...extra });
+
+    const k = U("kenneth.sanchez@legrand.com", "Kenneth Sánchez", "director_general", null, "Costa Rica", { is_admin: true });
+    const d1 = U("laura.mora@demo.com", "Laura Mora", "director", k.id, "GAM");
+    const d2 = U("esteban.rojas@demo.com", "Esteban Rojas", "director", k.id, "Regiones");
+    const g1 = U("carlos.vargas@demo.com", "Carlos Vargas", "gerente", d1.id, "San José Oeste");
+    const g2 = U("mariana.solis@demo.com", "Mariana Solís", "gerente", d1.id, "Heredia · Alajuela");
+    const g3 = U("diego.araya@demo.com", "Diego Araya", "gerente", d2.id, "Guanacaste");
+    const vend = [
+      U("ana.perez@demo.com", "Ana Pérez", "vendedor", g1.id, "Escazú · Santa Ana"),
+      U("jose.quesada@demo.com", "José Quesada", "vendedor", g1.id, "Pavas · La Uruca"),
+      U("sofia.jimenez@demo.com", "Sofía Jiménez", "vendedor", g2.id, "Heredia"),
+      U("pablo.castro@demo.com", "Pablo Castro", "vendedor", g2.id, "Alajuela · Coyol"),
+      U("valeria.chaves@demo.com", "Valeria Chaves", "vendedor", g2.id, "Belén · Santa Ana"),
+      U("andres.brenes@demo.com", "Andrés Brenes", "vendedor", g3.id, "Liberia"),
+      U("natalia.mendez@demo.com", "Natalia Méndez", "vendedor", g3.id, "Tamarindo · Flamingo"),
+    ];
+    const profiles = [k, d1, d2, g1, g2, g3, ...vend];
+
+    const clients = ["Constructora Montecristo", "Hotel Playa Azul", "Ferretería El Roble", "Inmobiliaria Arenal", "Clínica San Rafael",
+      "Data Center Coyol", "Plaza Comercial Tempo", "Condominio Vista Volcán", "Distribuidora del Norte", "Colegio Monteverde",
+      "Oficentro La Sabana", "Parque Industrial Zeta", "Hospital Metropolitano", "Torre Médica Escazú", "Eléctrica Pacífico"];
+    const objs = ["Presentar propuesta de canalización Cablofil", "Cerrar cotización de UPS Keor", "Demostración de mecanismos Arteor",
+      "Levantar requerimiento de cableado Datacom", "Negociar condiciones del proyecto fase 2", "Capacitación técnica al equipo de obra",
+      "Revisar especificación con el ingeniero eléctrico", "Seguimiento a orden de compra pendiente", "Presentar casos de éxito del sector hotelero"];
+    const actions = ["Capacitación en Datacom", "Lanzamiento nueva línea de mecanismos", "Campaña UPS para data centers", "Visitas conjuntas con distribuidor"];
+    const types = ["visita", "visita", "visita", "llamada", "seguimiento", "accion"];
+
+    const today = new Date();
+    const months = [new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 1)];
+    const mk = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    const W = window.RC_DATES;
+    const tasks = [], plans = [], weeks = [], risks = [];
+
+    const skill = {}; vend.forEach((v) => (skill[v.id] = 0.45 + rnd() * 0.5));
+
+    for (const m of months) {
+      const key = mk(m);
+      const wks = W.weeksOfMonth(key);
+      const curWeek = W.weekNoOf(today);
+      const isCur = m.getMonth() === today.getMonth();
+      for (const v of vend) {
+        const goal = Math.round((18 + rnd() * 30)) * 1000;
+        const plan = { id: uuid(), owner_id: v.id, month: key, territory: v.territory, goal_amount: goal, notes: "" };
+        plans.push(plan);
+        let ytd = 120000 + Math.round(rnd() * 80) * 1000;
+        for (const w of wks) {
+          const past = !isCur || w.no < curWeek, current = isCur && w.no === curWeek;
+          const wk = { id: uuid(), plan_id: plan.id, week_no: w.no, main_location: v.territory.split(" · ")[0], corporate_action: pick(actions) };
+          if (past || current) {
+            const closed = Math.round((goal / wks.length) * (0.4 + skill[v.id] * 0.9) / 100) * 100;
+            ytd += closed;
+            Object.assign(wk, { pipeline: Math.round(goal * (2 + rnd() * 2) / 1000) * 1000, closed_amount: current ? Math.round(closed * 0.5 / 100) * 100 : closed, closed_ytd: ytd, nps: Math.round(30 + rnd() * 50) });
+          }
+          weeks.push(wk);
+          const n = 3 + Math.floor(rnd() * 2);
+          for (let i = 0; i < n; i++) {
+            const type = pick(types);
+            const done = past ? rnd() < skill[v.id] + 0.15 : current ? rnd() < skill[v.id] * 0.6 : false;
+            const prog = !done && (past || current) && rnd() < 0.4;
+            const ck = {};
+            if (type === "visita") {
+              const f = done ? 1 : prog ? 0.5 : current ? 0.2 : 0;
+              ck.research = { history: rnd() < f + .1, profitability: rnd() < f, competition: rnd() < f, last_visit: rnd() < f, org_changes: rnd() < f, pain_points: rnd() < f };
+              ck.materials = { presentation: rnd() < f + .1, datasheets: rnd() < f, cases: rnd() < f, quote: rnd() < f, samples: rnd() < f, testimonials: rnd() < f, roi: rnd() < f };
+              ck.pain_points = f > 0.3 ? ["Tiempos de entrega", "Costo total del proyecto", ""] : ["", "", ""];
+              if (f > .4) { ck.smart_objective = "Obtener orden de compra de la fase 1 antes del cierre de mes"; ck.smart = { specific: "si", measurable: "si", realistic: f === 1 ? "si" : "parcial", timely: "si" }; }
+              if (done) { ck.signals = pick(["altas", "medias"]); ck.attendees = "Gerente de proyecto, ingeniero eléctrico"; ck.post = { email: true, crm: true, next_steps: rnd() < .8, schedule: rnd() < .6 }; }
+            }
+            const client = pick(clients);
+            tasks.push({
+              id: uuid(), owner_id: v.id, created_by: rnd() < 0.3 ? v.manager_id : v.id, period: "semanal", month: key, week_no: w.no,
+              task_type: type, client, title: pick(objs), objective: "", due_date: null,
+              status: done ? "completada" : prog ? "en_progreso" : "pendiente", completed_at: done ? new Date().toISOString() : null, checklist: ck,
+              created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+            });
+          }
+        }
+        // tareas mensuales
+        const mdone = !isCur || rnd() < 0.4;
+        tasks.push({ id: uuid(), owner_id: v.id, created_by: v.manager_id, period: "mensual", month: key, week_no: null, task_type: "accion", client: "", title: "Actualizar Account Plan de las 3 cuentas principales", objective: "", status: mdone ? "completada" : "pendiente", completed_at: null, checklist: {}, created_at: "", updated_at: "" });
+        tasks.push({ id: uuid(), owner_id: v.id, created_by: v.id, period: "mensual", month: key, week_no: null, task_type: "seguimiento", client: pick(clients), title: "Recuperar cliente inactivo con propuesta de valor", objective: "", status: !isCur ? "completada" : "en_progreso", completed_at: null, checklist: {}, created_at: "", updated_at: "" });
+        if (rnd() < 0.7) risks.push({ id: uuid(), plan_id: plan.id, description: pick(["Competencia agresiva en precio", "Riesgo logístico: atraso de importación", "Proyecto en pausa por permisos", "Cambio de encargado de compras"]), impact: pick(["alto", "medio", "bajo"]), mitigation: pick(["Presentar TCO y casos de éxito", "Coordinar stock con bodega regional", "Mantener contacto quincenal con el desarrollador"]), due_date: null, resolved: !isCur, created_by: v.id, created_at: "" });
+      }
+    }
+    return { profiles, tasks, plans, weeks, risks };
+  }
+
+  window.RC_API = CFG.SUPABASE_URL ? SupabaseApi() : DemoApi();
+})();
+
+  </script>
+  <script>
+/* ---- app.js ---- */
+// =====================================================================
+//  Ruta Comercial · aplicación
+// =====================================================================
+(function () {
+  const API = window.RC_API, D = window.RC_DATES, CFG = window.APP_CONFIG || {};
+  const SYM = CFG.CURRENCY_SYMBOL || "$";
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---------------------------------------------------------------
+  //  Catálogos
+  // ---------------------------------------------------------------
+  const ROLE = { director_general: "Director general", director: "Director", gerente: "Gerente", vendedor: "Vendedor" };
+  const ROLE_PL = { director_general: "Dirección general", director: "Directores", gerente: "Gerentes", vendedor: "Vendedores" };
+  const RANK = { director_general: 4, director: 3, gerente: 2, vendedor: 1 };
+  const TYPES = {
+    visita: { l: "Visita", i: "pin" }, llamada: { l: "Llamada", i: "phone" }, seguimiento: { l: "Seguimiento", i: "refresh" },
+    accion: { l: "Acción", i: "flag" }, otro: { l: "Otro", i: "dot" },
+  };
+  const STATUS = { pendiente: "Pendiente", en_progreso: "En progreso", completada: "Completada" };
+  const IMPACT = { alto: { l: "Alto", c: "brick" }, medio: { l: "Medio", c: "olive" }, bajo: { l: "Bajo", c: "slate" } };
+  const PACE = { ok: { l: "Al día", i: "check" }, warn: { l: "Atención", i: "minus" }, bad: { l: "Rezagado", i: "alert" } };
+  const PACE_COLOR = { ok: "var(--green)", warn: "var(--olive)", bad: "var(--brick)" };
+
+  // Plantilla 3 · Checklist de Preparación de Visita de Venta
+  const CK = {
+    research: { t: "Investigación del cliente", hint: "Completar 24 h antes de la visita", items: [
+      ["history", "Revisar historial de compras últimos 24 meses"], ["profitability", "Analizar rentabilidad actual con el cliente"],
+      ["competition", "Identificar competencia presente en la cuenta"], ["last_visit", "Revisar última visita: fecha y resultado"],
+      ["org_changes", "Identificar cambios organizacionales o estructurales"], ["pain_points", "Listar 2-3 pain points específicos a explorar"]] },
+    materials: { t: "Preparación de materiales", hint: "Marca solo cuando esté listo Y personalizado", items: [
+      ["presentation", "Presentación personalizada (no genérica)"], ["datasheets", "Fichas técnicas específicas del producto"],
+      ["cases", "Casos de éxito del sector relevante"], ["quote", "Cotización (si es requerida)"], ["samples", "Muestras o demostraciones preparadas"],
+      ["testimonials", "Testimonios de clientes similares"], ["roi", "Estimado de ROI/TCO personalizado"]] },
+    post: { t: "Acciones post-visita", hint: "Completar en las 24 h siguientes", items: [
+      ["email", "Enviar resumen de reunión por email"], ["crm", "Registrar información en CRM"],
+      ["next_steps", "Confirmar próximos pasos con el cliente"], ["schedule", "Programar próxima visita o seguimiento"]] },
+  };
+  const SMART = [["specific", "¿Es Específico?"], ["measurable", "¿Es Medible?"], ["realistic", "¿Es Realista?"], ["timely", "¿Es Temporal?"]];
+
+  // ---------------------------------------------------------------
+  //  Iconos (trazos simples 24×24)
+  // ---------------------------------------------------------------
+  const IC = {
+    home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+    map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.9.8 3.1 2.5 3.5 5.2"/>',
+    shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m9 12 2 2 4-4"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.3-6 8-6s7 2 8 6"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>', check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>', minus: '<path d="M6 12h12"/>',
+    chevL: '<path d="m15 18-6-6 6-6"/>', chevR: '<path d="m9 18 6-6-6-6"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+    refresh: '<path d="M20 11a8 8 0 0 0-14.9-3.5M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.9 3.5M20 20v-4h-4"/>',
+    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>', dot: '<circle cx="12" cy="12" r="3"/>',
+    calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h11"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l3 3M14 9l2 2"/>',
+    trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>', search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    alert: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>',
+    clip: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/>',
+    trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    tree: '<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2h12v2"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', route: '<circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/>',
+    smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/>',
+  };
+  const icon = (n, cls = "") => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ""}</svg>`;
+
+  // ---------------------------------------------------------------
+  //  Estado
+  // ---------------------------------------------------------------
+  const today = new Date();
+  const S = {
+    me: null, profiles: [], by: {}, tasks: [], plans: [],
+    month: D.monthKey(today), week: D.weekNoOf(today),
+    route: "home", param: null, teamMode: "org", adminTab: "users", adminFilter: "all", adminQ: "",
+    openWeeks: {},
+  };
+
+  // ---------------------------------------------------------------
+  //  Formatos
+  // ---------------------------------------------------------------
+  const money = (v) => (v == null || v === "" ? "—" : SYM + Number(v).toLocaleString("en-US", { maximumFractionDigits: 0 }));
+  const moneyK = (v) => {
+    v = Number(v) || 0; const a = Math.abs(v);
+    if (a >= 1e6) return SYM + (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+    if (a >= 1e3) return SYM + Math.round(v / 1e3) + "k";
+    return SYM + v;
+  };
+  const pctTxt = (p) => (p == null || !isFinite(p) ? "—" : Math.round(p * 100) + "%");
+  const initials = (n) => (n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
+  const firstName = (n) => (n || "").split(" ")[0];
+  const clamp01 = (x) => Math.max(0, Math.min(1, x || 0));
+
+  // ---------------------------------------------------------------
+  //  Jerarquía y permisos (espejo de la seguridad en la base de datos)
+  // ---------------------------------------------------------------
+  function isUnder(child, boss) {
+    let cur = S.by[child], n = 0;
+    while (cur && cur.manager_id && n++ < 12) { if (cur.manager_id === boss) return true; cur = S.by[cur.manager_id]; }
+    return false;
+  }
+  const canSee = (id) => !!S.me && (id === S.me.id || S.me.is_admin || S.me.role === "director_general" || isUnder(id, S.me.id));
+  const canManage = (id) => !!S.me && (id === S.me.id || S.me.role === "director_general" || isUnder(id, S.me.id));
+  const subordinates = () => S.profiles.filter((p) => p.id !== S.me.id && p.active && canManage(p.id) && canSee(p.id));
+  const hasTeam = () => subordinates().length > 0;
+  const children = (id, pool) => pool.filter((p) => p.manager_id === id);
+  const descendants = (id) => S.profiles.filter((p) => p.active && isUnder(p.id, id));
+
+  function subject() {
+    if (S.param && S.by[S.param] && canSee(S.param)) return S.by[S.param];
+    return S.me;
+  }
+
+  // ---------------------------------------------------------------
+  //  Métricas
+  // ---------------------------------------------------------------
+  const isDone = (t) => t.status === "completada";
+  const planOf = (ownerId) => S.plans.find((p) => p.owner_id === ownerId);
+
+  function checklistPct(ck) {
+    ck = ck || {}; let tot = 0, got = 0;
+    for (const sec of ["research", "materials", "post"]) for (const [k] of CK[sec].items) { tot++; if (ck[sec]?.[k]) got++; }
+    tot++; if ((ck.smart_objective || "").trim()) got++;
+    for (const [k] of SMART) { tot++; got += ck.smart?.[k] === "si" ? 1 : ck.smart?.[k] === "parcial" ? 0.5 : 0; }
+    tot++; if (ck.signals) got++;
+    return got / tot;
+  }
+
+  function pace(pct, expected) {
+    if (pct == null) return null;
+    const d = pct - expected;
+    return d >= -0.1 ? "ok" : d >= -0.3 ? "warn" : "bad";
+  }
+
+  function stats(ownerIds) {
+    ownerIds = [].concat(ownerIds);
+    const set = new Set(ownerIds);
+    const tasks = S.tasks.filter((t) => set.has(t.owner_id));
+    const weeks = D.weeksOfMonth(S.month);
+    const perWeek = weeks.map((w) => {
+      const ts = tasks.filter((t) => t.period === "semanal" && t.week_no === w.no);
+      const done = ts.filter(isDone).length;
+      return { w, total: ts.length, done, pct: ts.length ? done / ts.length : null, expected: D.elapsedFraction(w.start, w.end) };
+    });
+    const done = tasks.filter(isDone).length;
+    const visits = tasks.filter((t) => t.task_type === "visita");
+    const plans = ownerIds.map(planOf).filter(Boolean);
+    const goal = plans.reduce((a, p) => a + (Number(p.goal_amount) || 0), 0);
+    let closed = 0, pipeline = 0, npsSum = 0, npsN = 0;
+    for (const p of plans) {
+      const ws = [...(p.plan_weeks || [])].sort((a, b) => a.week_no - b.week_no);
+      closed += ws.reduce((a, w) => a + (Number(w.closed_amount) || 0), 0);
+      const lastPipe = ws.filter((w) => w.pipeline != null && w.pipeline !== "").pop();
+      pipeline += lastPipe ? Number(lastPipe.pipeline) : 0;
+      ws.forEach((w) => { if (w.nps != null && w.nps !== "") { npsSum += Number(w.nps); npsN++; } });
+    }
+    const monthStart = D.parse(S.month), monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    const monthExpected = D.elapsedFraction(monthStart, monthEnd);
+    const cur = perWeek.find((x) => x.w.no === S.week) || perWeek[0];
+    const monthPct = tasks.length ? done / tasks.length : null;
+    const openRisks = plans.flatMap((p) => (p.plan_risks || []).filter((r) => !r.resolved));
+    return {
+      tasks, perWeek, cur, total: tasks.length, done, monthPct, monthExpected,
+      visits: visits.length, visitsDone: visits.filter(isDone).length,
+      goal, closed, goalPct: goal ? closed / goal : null, pipeline, coverage: goal ? pipeline / goal : null,
+      nps: npsN ? npsSum / npsN : null, openRisks,
+      weekPace: cur ? pace(cur.pct, cur.expected) : null, monthPace: pace(monthPct, monthExpected),
+    };
+  }
+
+  // ---------------------------------------------------------------
+  //  Componentes visuales
+  // ---------------------------------------------------------------
+  function ring(pct, size = 64, stroke = 7, color = "var(--green)", track = "var(--line)", label = null, labelColor = "inherit") {
+    const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c * (1 - clamp01(pct));
+    const lbl = label ?? pctTxt(pct);
+    return `<div class="ring" style="width:${size}px;height:${size}px;color:${labelColor}" role="img" aria-label="${esc(lbl)}">
+      <svg width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${track}" stroke-width="${stroke}"/>
+      ${pct ? `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"/>` : ""}</svg>
+      <div class="ring-label" style="font-size:${Math.round(size / (String(lbl).length > 3 ? 4.8 : 4.2))}px">${lbl}</div></div>`;
+  }
+  const statusPill = (p) => (p ? `<span class="status ${p}">${icon(PACE[p].i)}${PACE[p].l}</span>` : `<span class="status" style="background:var(--surface-2);color:var(--ink-3)">Sin tareas</span>`);
+  const bar = (pct, cls = "") => `<div class="bar ${cls}"><i style="width:${Math.round(clamp01(pct) * 100)}%"></i></div>`;
+  const avatar = (p, cls = "") => `<div class="avatar r-${p?.role} ${cls}">${esc(initials(p?.full_name))}</div>`;
+
+  function barChart(vals, labels, ref, tips) {
+    const W = 340, H = 160, pl = 6, pr = 6, pt = 22, pb = 24;
+    const max = Math.max(ref || 0, ...vals.map((v) => v || 0)) * 1.12 || 1;
+    const n = vals.length, bw = (W - pl - pr) / n, bwid = Math.min(30, bw * 0.46);
+    const y = (v) => H - pb - (v / max) * (H - pt - pb);
+    let out = `<line x1="${pl}" x2="${W - pr}" y1="${H - pb}" y2="${H - pb}" stroke="var(--line)" stroke-width="1"/>`;
+    vals.forEach((v, i) => {
+      const x = pl + i * bw + (bw - bwid) / 2, cx = pl + i * bw + bw / 2;
+      if (v > 0) {
+        const top = y(v), h = H - pb - top, r = Math.min(4, h);
+        out += `<path d="M${x},${H - pb} V${top + r} Q${x},${top} ${x + r},${top} H${x + bwid - r} Q${x + bwid},${top} ${x + bwid},${top + r} V${H - pb} Z" fill="var(--green)"/>`;
+        out += `<text x="${cx}" y="${top - 6}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--ink-2)">${moneyK(v)}</text>`;
+      }
+      out += `<text x="${cx}" y="${H - 7}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--ink-3)">${labels[i]}</text>`;
+      out += `<rect x="${pl + i * bw}" y="0" width="${bw}" height="${H}" fill="transparent" data-tip="${esc(tips[i])}"/>`;
+    });
+    if (ref) {
+      const ry = y(ref);
+      out += `<line x1="${pl}" x2="${W - pr}" y1="${ry}" y2="${ry}" stroke="var(--olive)" stroke-width="1.5" stroke-dasharray="4 4"/>`;
+    }
+    const legend = ref ? `<div class="row xs muted" style="gap:14px;margin-top:4px"><span class="row" style="gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:var(--green);display:inline-block"></i>Cierres</span><span class="row" style="gap:5px"><i style="width:14px;border-top:2px dashed var(--olive);display:inline-block"></i>Meta semanal ${moneyK(ref)}</span></div>` : "";
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cierres por semana">${out}</svg>${legend}`;
+  }
+
+  // ---------------------------------------------------------------
+  //  Toast / Sheet
+  // ---------------------------------------------------------------
+  let toastTimer;
+  function toast(msg, err = false) {
+    let t = $(".toast");
+    if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); }
+    t.className = "toast" + (err ? " err" : "");
+    t.innerHTML = (err ? icon("alert", "sm") : icon("check", "sm")) + `<span>${esc(msg)}</span>`;
+    requestAnimationFrame(() => t.classList.add("show"));
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+
+  // Confirmación dentro de la página (sin window.confirm)
+  function confirmBox(msg, okLabel = "Eliminar") {
+    return new Promise((resolve) => {
+      const wrap = document.createElement("div");
+      wrap.className = "confirm-wrap";
+      wrap.innerHTML = `<div class="confirm-box" role="alertdialog" aria-modal="true"><div class="bold">${esc(msg)}</div>
+        <div class="form-actions"><button class="btn ghost" data-c="0">Cancelar</button><button class="btn danger" data-c="1">${esc(okLabel)}</button></div></div>`;
+      document.body.appendChild(wrap);
+      wrap.querySelector('[data-c="1"]').focus();
+      wrap.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-c]");
+        if (!b && e.target !== wrap) return;
+        e.stopPropagation(); wrap.remove(); resolve(!!b && b.dataset.c === "1");
+      });
+    });
+  }
+
+  let SHEET = null;
+  function openSheet(opts) {
+    closeSheet(true);
+    const bd = document.createElement("div"); bd.className = "backdrop";
+    const sh = document.createElement("div"); sh.className = "sheet" + (opts.wide ? " wide" : "");
+    sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "true");
+    document.body.append(bd, sh);
+    SHEET = { ...opts, el: sh, bd };
+    SHEET.refresh = () => {
+      const scroll = sh.querySelector(".sheet-body")?.scrollTop || 0;
+      sh.innerHTML = `<div class="grab"></div><div class="sheet-head"><h2>${opts.title()}</h2>
+        <button class="icon-btn" data-act="close-sheet" aria-label="Cerrar">${icon("x")}</button></div>
+        <div class="sheet-body">${opts.body()}</div>${opts.foot ? `<div class="sheet-foot">${opts.foot()}</div>` : ""}`;
+      sh.querySelector(".sheet-body").scrollTop = scroll;
+      opts.mounted && opts.mounted(sh);
+    };
+    SHEET.refresh();
+    bd.addEventListener("click", () => closeSheet());
+    requestAnimationFrame(() => { bd.classList.add("show"); sh.classList.add("show"); });
+    document.body.style.overflow = "hidden";
+    return SHEET;
+  }
+  function closeSheet(instant) {
+    if (!SHEET) return;
+    const { el, bd } = SHEET; SHEET = null;
+    document.body.style.overflow = "";
+    if (instant) { el.remove(); bd.remove(); return; }
+    el.classList.remove("show"); bd.classList.remove("show");
+    setTimeout(() => { el.remove(); bd.remove(); }, 260);
+  }
+
+  // ---------------------------------------------------------------
+  //  Carga de datos
+  // ---------------------------------------------------------------
+  async function loadProfiles() {
+    S.profiles = await API.listProfiles();
+    S.by = {}; S.profiles.forEach((p) => (S.by[p.id] = p));
+    if (S.by[S.me.id]) S.me = S.by[S.me.id];
+  }
+  async function loadMonth() {
+    const [tasks, plans] = await Promise.all([API.listTasks(S.month), API.listPlans(S.month)]);
+    S.tasks = tasks; S.plans = plans;
+  }
+  async function reloadAll() { await loadProfiles(); await loadMonth(); }
+
+  async function setMonth(delta) {
+    S.month = D.addMonths(S.month, delta);
+    const isCur = S.month === D.monthKey(today);
+    S.week = isCur ? D.weekNoOf(today) : 1;
+    S.openWeeks = {};
+    renderLoading();
+    try { await loadMonth(); } catch (e) { toast(e.message, true); }
+    render();
+  }
+
+  // ---------------------------------------------------------------
+  //  Router
+  // ---------------------------------------------------------------
+  function parseHash() {
+    const [r, p] = location.hash.replace(/^#\/?/, "").split("/");
+    S.route = r || "home"; S.param = p || null;
+  }
+  window.addEventListener("hashchange", () => { parseHash(); render(); window.scrollTo(0, 0); });
+  const go = (h) => { if (location.hash === h) render(); else location.hash = h; };
+
+  // ---------------------------------------------------------------
+  //  Render raíz
+  // ---------------------------------------------------------------
+  const app = () => $("#app");
+  function renderLoading() { const v = $("#view"); if (v) v.innerHTML = `<div class="spinner"></div>`; }
+
+  function render() {
+    if (!S.me) return renderLogin();
+    if (S.me.must_change_password) return renderForcePassword();
+    if (S.route === "team" && !hasTeam()) S.route = "home";
+    if (S.route === "admin" && !S.me.is_admin) S.route = "home";
+    const views = { home: viewHome, plan: viewPlan, team: viewTeam, admin: viewAdmin, profile: viewProfile };
+    const view = (views[S.route] || viewHome)();
+    const nav = [
+      ["home", "home", "Inicio"], ["plan", "map", "Hoja de ruta"],
+      ...(hasTeam() ? [["team", "users", "Equipo"]] : []),
+      ...(S.me.is_admin ? [["admin", "shield", "Admin"]] : []),
+      ["profile", "user", "Perfil"],
+    ];
+    app().innerHTML = `<div class="shell">
+      <nav class="nav" aria-label="Principal">
+        <div class="brand"><div class="brand-mark">${icon("route")}</div><div>${esc(CFG.APP_NAME || "Ruta Comercial")}<div class="xs muted" style="font-weight:600">Método Legrand</div></div></div>
+        ${nav.map(([r, i, l]) => `<a href="#/${r}" class="${S.route === r ? "active" : ""}"><span class="pill">${icon(i)}<span class="lbl-inline">${l}</span></span><span class="lbl-stack">${l.split(" ")[0] === "Hoja" ? "Plan" : l}</span></a>`).join("")}
+        <div class="nav-foot"><div class="row">${avatar(S.me)}<div class="grow"><div class="bold small ellipsis">${esc(S.me.full_name)}</div><div class="xs muted">${ROLE[S.me.role]}${S.me.is_admin ? " · Admin" : ""}</div></div></div>
+        ${API.mode === "demo" ? `<div class="chip olive" style="margin-top:10px">Modo demo</div>` : ""}</div>
+      </nav>
+      <main class="main"><div class="page" id="view">${view}</div></main>
+    </div>`;
+    afterRender();
+  }
+
+  function afterRender() {
+    const sel = $(".weeks .wk.sel");
+    if (sel) sel.scrollIntoView({ block: "nearest", inline: "center" });
+  }
+
+  const monthSwitch = () => `<div class="month-sw"><button data-act="month" data-d="-1" aria-label="Mes anterior">${icon("chevL", "sm")}</button>
+    <span>${D.monthLabel(S.month)}</span><button data-act="month" data-d="1" aria-label="Mes siguiente">${icon("chevR", "sm")}</button></div>`;
+
+  function viewingBanner(subj, route) {
+    if (subj.id === S.me.id) return "";
+    return `<div class="viewing">${avatar(subj)}<div class="grow"><div class="xs">Estás viendo a</div><div class="bold ellipsis">${esc(subj.full_name)} · ${ROLE[subj.role]}</div></div>
+      <a class="btn sm ghost" href="#/${route}">${icon("chevL", "sm")}Yo</a></div>`;
+  }
+
+  // ---------------------------------------------------------------
+  //  VISTA: Inicio
+  // ---------------------------------------------------------------
+  function viewHome() {
+    const subj = subject(), mine = subj.id === S.me.id;
+    const st = stats(subj.id);
+    const weeks = st.perWeek;
+    const cw = weeks.find((x) => x.w.no === S.week) || weeks[0];
+    const wTasks = st.tasks.filter((t) => t.period === "semanal" && t.week_no === cw.w.no);
+    const mTasks = st.tasks.filter((t) => t.period === "mensual");
+    const sortT = (a, b) => (isDone(a) - isDone(b)) || String(a.created_at).localeCompare(String(b.created_at));
+    const isNow = S.month === D.monthKey(today) && cw.w.no === D.weekNoOf(today);
+    const hello = mine ? `Hola, ${esc(firstName(S.me.full_name))}` : esc(subj.full_name);
+    const canAdd = canManage(subj.id);
+
+    const hero = `<div class="hero">
+      <div class="hero-top">
+        ${ring(cw.pct, 88, 9, "#fff", "rgba(255,255,255,.22)", cw.total ? pctTxt(cw.pct) : "—", "#fff")}
+        <div class="grow">
+          <div class="eyebrow">Semana ${cw.w.no}${isNow ? " · actual" : ""}</div>
+          <div class="big">${cw.total ? `${cw.done} de ${cw.total} tareas` : "Sin tareas aún"}</div>
+          <div class="meta">${D.rangeLabel(cw.w)} · ${cw.total ? (cw.done === cw.total ? "¡Semana completa! 🎉" : `${cw.total - cw.done} pendientes`) : "Planifica tus visitas"}</div>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="v num">${pctTxt(st.monthPct)}</div><div class="l">Avance del mes</div><div class="bar"><i style="width:${Math.round(clamp01(st.monthPct) * 100)}%"></i></div></div>
+        <div class="hero-stat"><div class="v num">${st.visitsDone}/${st.visits}</div><div class="l">Visitas</div><div class="bar"><i style="width:${st.visits ? Math.round(st.visitsDone / st.visits * 100) : 0}%"></i></div></div>
+        <div class="hero-stat"><div class="v num">${st.goal ? pctTxt(st.goalPct) : "—"}</div><div class="l">Meta ${st.goal ? moneyK(st.goal) : "sin definir"}</div><div class="bar"><i style="width:${Math.round(clamp01(st.goalPct) * 100)}%"></i></div></div>
+      </div>
+    </div>`;
+
+    const strip = `<div class="weeks" role="tablist" aria-label="Semanas del mes">${weeks.map((x) => {
+      const p = pace(x.pct, x.expected);
+      const now = S.month === D.monthKey(today) && x.w.no === D.weekNoOf(today);
+      return `<button class="wk ${x.w.no === cw.w.no ? "sel" : ""}" data-act="week" data-no="${x.w.no}" role="tab" aria-selected="${x.w.no === cw.w.no}"
+        data-tip="Semana ${x.w.no}: ${x.done}/${x.total} tareas (${pctTxt(x.pct)})">
+        <span class="wk-n">S${x.w.no}</span>
+        <span class="col"><i style="height:${Math.round(clamp01(x.pct) * 100)}%;background:${p ? PACE_COLOR[p] : "transparent"}"></i></span>
+        <span class="wk-p num">${x.total ? pctTxt(x.pct) : "—"}</span>
+        <span class="wk-d">${D.rangeLabel(x.w)}</span>${now ? `<span class="now">hoy</span>` : ""}</button>`;
+    }).join("")}</div>`;
+
+    const list = (arr, emptyTxt, period) => arr.length
+      ? arr.sort(sortT).map(taskItem).join("")
+      : `<div class="empty"><div class="e-ico">${icon(period === "mensual" ? "calendar" : "pin")}</div><div class="bold" style="color:var(--ink-2)">${emptyTxt}</div>
+         ${canAdd ? `<button class="btn soft sm" style="margin-top:12px" data-act="new-task" data-period="${period}">${icon("plus", "sm")}Agregar tarea</button>` : ""}</div>`;
+
+    const plan = planOf(subj.id);
+    const side = `<div class="card">
+        <div class="row between"><h3 style="margin:0">Hoja de ruta del mes</h3><a class="btn sm ghost" href="#/plan${mine ? "" : "/" + subj.id}">Abrir ${icon("chevR", "sm")}</a></div>
+        <div class="grid g2m" style="margin-top:12px">
+          <div><div class="xs muted bold">Cierres vs meta</div><div class="bold num" style="font-size:18px">${money(st.closed)}</div><div class="xs muted">de ${st.goal ? money(st.goal) : "meta sin definir"}</div>${bar(st.goalPct)}</div>
+          <div><div class="xs muted bold">Cobertura pipeline</div><div class="bold num" style="font-size:18px">${st.coverage != null ? st.coverage.toFixed(1) + "x" : "—"}</div><div class="xs muted">objetivo &gt; 3x la meta</div>${bar(st.coverage != null ? st.coverage / 3 : 0, st.coverage != null && st.coverage < 3 ? "olive" : "")}</div>
+        </div>
+        ${plan?.territory ? `<div class="chip" style="margin-top:12px">${icon("pin", "sm")}${esc(plan.territory)}</div>` : ""}
+        ${st.openRisks.length ? `<div class="row" style="margin-top:12px;color:var(--brick)" >${icon("alert", "sm")}<span class="small bold">${st.openRisks.length} riesgo${st.openRisks.length > 1 ? "s" : ""} abierto${st.openRisks.length > 1 ? "s" : ""}</span></div>` : ""}
+      </div>
+      ${mine && hasTeam() ? teamTeaser() : ""}`;
+
+    return `<header class="topbar"><div class="grow"><h1>${hello}</h1><div class="sub">${mine ? "Tu avance de un vistazo" : ROLE[subj.role] + (subj.territory ? " · " + esc(subj.territory) : "")}</div></div>${monthSwitch()}</header>
+      ${viewingBanner(subj, "home")}
+      <div class="cols">
+        <div>
+          ${hero}
+          ${strip}
+          <div class="section-title"><span>Tareas · Semana ${cw.w.no}</span><span class="count">${cw.done}/${cw.total}</span></div>
+          ${list(wTasks, "No hay tareas para esta semana", "semanal")}
+          <div class="section-title"><span>Tareas del mes</span><span class="count">${mTasks.filter(isDone).length}/${mTasks.length}</span></div>
+          ${list(mTasks, "No hay tareas mensuales", "mensual")}
+        </div>
+        <div><div class="section-title" style="margin-top:0"><span>Resumen</span></div>${side}</div>
+      </div>
+      ${canAdd ? `<button class="fab" data-act="new-task" aria-label="Nueva tarea">${icon("plus")}</button>` : ""}`;
+  }
+
+  function teamTeaser() {
+    const subs = subordinates();
+    const sellers = subs.filter((p) => p.role === "vendedor");
+    const st = stats(subs.map((p) => p.id));
+    const behind = subs.filter((p) => stats(p.id).weekPace === "bad");
+    return `<div class="card" style="cursor:pointer" data-act="goto" data-to="#/team">
+      <div class="row">${ring(st.cur?.pct, 56, 6, "var(--green)", "var(--line)")}
+      <div class="grow"><h3 style="margin:0">Mi equipo esta semana</h3>
+      <div class="small muted">${subs.length} persona${subs.length !== 1 ? "s" : ""} · ${sellers.length} vendedor${sellers.length !== 1 ? "es" : ""}</div>
+      ${behind.length ? `<div class="small bold" style="color:var(--brick);margin-top:4px">${behind.length} con avance rezagado</div>` : `<div class="small bold" style="color:var(--green);margin-top:4px">Todos al día</div>`}</div>${icon("chevR")}</div></div>`;
+  }
+
+  function taskItem(t) {
+    const done = isDone(t), prog = t.status === "en_progreso";
+    const canEdit = canManage(t.owner_id);
+    const ty = TYPES[t.task_type] || TYPES.otro;
+    const ck = t.task_type === "visita" ? checklistPct(t.checklist) : null;
+    const by = t.created_by && t.created_by !== t.owner_id ? S.by[t.created_by] : null;
+    const chips = [];
+    if (t.client) chips.push(`<span class="chip">${ty.l}</span>`);
+    if (prog) chips.push(`<span class="chip olive">En progreso</span>`);
+    if (ck != null) chips.push(`<span class="chip ${ck >= 1 ? "green" : ""}">${icon("clip", "sm")}Checklist <span class="mini-bar ${ck >= 1 ? "full" : ""}"><i style="width:${Math.round(ck * 100)}%"></i></span>${pctTxt(ck)}</span>`);
+    if (by) chips.push(`<span class="chip slate">Asignada por ${esc(firstName(by.full_name))}</span>`);
+    if (t.due_date) chips.push(`<span class="chip">${icon("calendar", "sm")}${D.shortDate(t.due_date)}</span>`);
+    return `<div class="task ${done ? "done" : ""}">
+      <button class="check ${done ? "on" : prog ? "half" : ""}" data-act="toggle" data-id="${t.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completada"}" ${canEdit ? "" : "disabled"}>${icon(prog && !done ? "minus" : "check", "sm")}</button>
+      <div class="t-body" data-act="edit-task" data-id="${t.id}">
+        <div class="t-client">${icon(ty.i, "sm")}${esc(t.client || ty.l)}</div>
+        <div class="t-title">${esc(t.title)}</div>
+        ${chips.length ? `<div class="t-meta">${chips.join("")}</div>` : ""}
+      </div></div>`;
+  }
+
+  // ---------------------------------------------------------------
+  //  VISTA: Hoja de ruta mensual (Plantilla 2)
+  // ---------------------------------------------------------------
+  function viewPlan() {
+    const subj = subject(), mine = subj.id === S.me.id, editable = canManage(subj.id);
+    const plan = planOf(subj.id);
+    const st = stats(subj.id);
+    const weeks = st.perWeek;
+    const wk = (no) => (plan?.plan_weeks || []).find((w) => w.week_no === no) || {};
+    const dis = editable ? "" : "readonly";
+
+    const info = `<div class="card">
+      <h3>${icon("target", "sm")} Información del mes</h3>
+      <div class="grid g2">
+        <label class="field"><span>Meta de cierres del mes</span><div class="money"><input class="input num" inputmode="decimal" data-plan-field="goal_amount" value="${plan?.goal_amount ? Number(plan.goal_amount) : ""}" placeholder="0" ${dis}></div></label>
+        <label class="field" style="margin-top:0"><span>Territorio</span><input class="input" data-plan-field="territory" value="${esc(plan?.territory ?? subj.territory ?? "")}" placeholder="Ej. GAM Oeste" ${dis}></label>
+      </div>
+      <div class="xs muted" style="margin-top:8px">${mine ? "Gerente" : "Responsable"}: <b>${esc(mine ? (S.by[subj.manager_id]?.full_name || "—") : subj.full_name)}</b></div>
+    </div>`;
+
+    const kpis = `<div id="plan-kpis">${planKpis(st)}</div>`;
+    const chart = `<div class="card chart-card" id="plan-chart">${planChart(st, plan)}</div>`;
+
+    const weeksHtml = weeks.map((x) => {
+      const w = wk(x.w.no);
+      const ts = st.tasks.filter((t) => t.period === "semanal" && t.week_no === x.w.no);
+      const isNow = S.month === D.monthKey(today) && x.w.no === D.weekNoOf(today);
+      const open = S.openWeeks[x.w.no] ?? isNow;
+      const p = pace(x.pct, x.expected);
+      const visitsDone = ts.filter((t) => t.task_type === "visita" && isDone(t)).length;
+      return `<details class="week-acc" data-week-acc="${x.w.no}" ${open ? "open" : ""}>
+        <summary><div class="wk-badge ${isNow ? "cur" : ""}">S${x.w.no}</div>
+          <div class="grow"><div class="bold">Semana ${x.w.no} <span class="muted small" style="font-weight:600">· ${D.rangeLabel(x.w)}</span></div>
+          <div class="row" style="gap:8px;margin-top:3px">${x.total ? statusPill(p) : ""}<span class="xs muted">${x.done}/${x.total} tareas · ${visitsDone} visitas</span></div></div>
+          ${ring(x.pct, 44, 5, p ? PACE_COLOR[p] : "var(--green)")}<span class="chev">${icon("chevR")}</span></summary>
+        <div class="wa-body">
+          <div class="grid g2" style="margin-top:14px">
+            <label class="field"><span>Ubicación principal</span><input class="input" data-week-field="main_location" data-week="${x.w.no}" value="${esc(w.main_location || "")}" placeholder="Zona / ciudad" ${dis}></label>
+            <label class="field" style="margin-top:0"><span>Acción corporativa</span><input class="input" data-week-field="corporate_action" data-week="${x.w.no}" value="${esc(w.corporate_action || "")}" placeholder="Ej. Capacitación en Datacom" ${dis}></label>
+          </div>
+          <div class="section-title" style="margin-top:18px"><span>Clientes y objetivos</span>${editable ? `<button class="btn sm soft" data-act="new-task" data-period="semanal" data-week="${x.w.no}">${icon("plus", "sm")}Agregar</button>` : ""}</div>
+          ${ts.length ? `<div>${ts.map((t, i) => `<div class="tbl-row">
+              <button class="check ${isDone(t) ? "on" : t.status === "en_progreso" ? "half" : ""}" data-act="toggle" data-id="${t.id}" aria-label="Completar" ${editable ? "" : "disabled"}>${icon(t.status === "en_progreso" ? "minus" : "check", "sm")}</button>
+              <div class="grow" data-act="edit-task" data-id="${t.id}" style="cursor:pointer"><div class="bold small ellipsis">${i + 1}. ${esc(t.client || TYPES[t.task_type]?.l)}</div><div class="small muted ellipsis">${esc(t.title)}</div></div>
+              ${t.task_type === "visita" ? `<span class="chip ${checklistPct(t.checklist) >= 1 ? "green" : ""}">${pctTxt(checklistPct(t.checklist))}</span>` : `<span class="chip">${TYPES[t.task_type]?.l}</span>`}
+            </div>`).join("")}</div>` : `<div class="small muted" style="padding:6px 2px">Sin clientes planificados.</div>`}
+          <div class="section-title" style="margin-top:18px"><span>Indicadores de la semana</span></div>
+          <div class="ind-grid">
+            <label class="field"><span>Pipeline</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="pipeline" data-week="${x.w.no}" value="${w.pipeline ?? ""}" ${dis}></div></label>
+            <label class="field"><span>Cierres semana</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="closed_amount" data-week="${x.w.no}" value="${w.closed_amount ?? ""}" ${dis}></div></label>
+            <label class="field"><span>Cierre YTD</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="closed_ytd" data-week="${x.w.no}" value="${w.closed_ytd ?? ""}" ${dis}></div></label>
+            <label class="field"><span>NPS medido</span><input class="input num" inputmode="decimal" data-week-field="nps" data-week="${x.w.no}" value="${w.nps ?? ""}" ${dis}></label>
+          </div>
+          <div class="xs muted" style="margin-top:8px"># Visitas se calcula solo: ${visitsDone} visita${visitsDone !== 1 ? "s" : ""} completada${visitsDone !== 1 ? "s" : ""}.</div>
+        </div></details>`;
+    }).join("");
+
+    const risks = (plan?.plan_risks || []).slice().sort((a, b) => (a.resolved - b.resolved) || ("abm".indexOf(a.impact[0]) - "abm".indexOf(b.impact[0])));
+    const risksHtml = risks.length ? risks.map((r) => `<div class="risk ${r.resolved ? "resolved" : ""}" data-act="edit-risk" data-id="${r.id}" style="cursor:pointer">
+        <div class="r-bar" style="background:var(--${IMPACT[r.impact].c})"></div>
+        <div class="grow"><div class="row between"><div class="bold">${esc(r.description)}</div><span class="chip ${IMPACT[r.impact].c}">${IMPACT[r.impact].l}</span></div>
+        ${r.mitigation ? `<div class="small muted" style="margin-top:4px">${icon("shield", "sm")} ${esc(r.mitigation)}</div>` : ""}
+        <div class="row" style="margin-top:6px;gap:6px">${r.due_date ? `<span class="chip">${icon("calendar", "sm")}${D.shortDate(r.due_date)}</span>` : ""}${r.resolved ? `<span class="chip green">${icon("check", "sm")}Resuelto</span>` : ""}</div></div></div>`).join("")
+      : `<div class="empty"><div class="e-ico">${icon("shield")}</div><div class="bold" style="color:var(--ink-2)">Sin riesgos registrados</div><div class="small">Identifica riesgos logísticos, de competencia, etc.</div></div>`;
+
+    return `<header class="topbar"><div class="grow"><h1>Hoja de ruta</h1><div class="sub">${mine ? "Planificación y seguimiento mensual" : esc(subj.full_name)}</div></div>${monthSwitch()}</header>
+      ${viewingBanner(subj, "plan")}
+      <div class="cols">
+        <div>${info}${kpis}
+          <div class="section-title"><span>Semanas</span><span class="count">${weeks.length}</span></div>${weeksHtml}</div>
+        <div>
+          <div class="section-title" style="margin-top:0"><span>Cierres por semana</span></div>${chart}
+          <div class="section-title"><span>Puntos de alerta / riesgos</span>${editable ? `<button class="btn sm soft" data-act="new-risk">${icon("plus", "sm")}Riesgo</button>` : ""}</div>${risksHtml}
+        </div>
+      </div>`;
+  }
+
+  function planKpis(st) {
+    const cov = st.coverage;
+    return `<div class="grid g2m" style="margin-top:12px">
+      <div class="kpi"><div class="k-l">${icon("target", "sm")}Meta</div><div class="k-v num">${pctTxt(st.goalPct)}</div><div class="k-s num">${money(st.closed)} de ${money(st.goal)}</div>${bar(st.goalPct)}</div>
+      <div class="kpi"><div class="k-l">${icon("trend", "sm")}Pipeline</div><div class="k-v num">${cov != null ? cov.toFixed(1) + "x" : "—"}</div><div class="k-s num">${money(st.pipeline)} · objetivo 3x</div>${bar(cov != null ? cov / 3 : 0, cov != null && cov < 3 ? "olive" : "")}</div>
+      <div class="kpi"><div class="k-l">${icon("pin", "sm")}Visitas</div><div class="k-v num">${st.visitsDone}<span class="muted" style="font-size:15px">/${st.visits}</span></div><div class="k-s">completadas / planificadas</div>${bar(st.visits ? st.visitsDone / st.visits : 0)}</div>
+      <div class="kpi"><div class="k-l">${icon("smile", "sm")}NPS promedio</div><div class="k-v num">${st.nps != null ? Math.round(st.nps) : "—"}</div><div class="k-s">de las semanas medidas</div>${bar(st.nps != null ? (st.nps + 100) / 200 : 0)}</div>
+    </div>`;
+  }
+  function planChart(st, plan) {
+    const weeks = st.perWeek;
+    const vals = weeks.map((x) => Number((plan?.plan_weeks || []).find((w) => w.week_no === x.w.no)?.closed_amount) || 0);
+    const ref = st.goal ? st.goal / weeks.length : 0;
+    const tips = weeks.map((x, i) => `Semana ${x.w.no} (${D.rangeLabel(x.w)}): ${money(vals[i])}`);
+    return barChart(vals, weeks.map((x) => "S" + x.w.no), ref, tips) +
+      `<div class="row between xs muted" style="margin-top:6px"><span>Total del mes: <b class="num" style="color:var(--ink)">${money(st.closed)}</b></span><span>Meta: <b class="num" style="color:var(--ink)">${money(st.goal)}</b></span></div>`;
+  }
+  function refreshPlanParts() {
+    const subj = subject(); const st = stats(subj.id);
+    const k = $("#plan-kpis"); if (k) k.innerHTML = planKpis(st);
+    const c = $("#plan-chart"); if (c) c.innerHTML = planChart(st, planOf(subj.id));
+  }
+
+  async function ensurePlanFor(ownerId) {
+    let p = planOf(ownerId);
+    if (p) return p;
+    p = await API.ensurePlan(ownerId, S.month);
+    S.plans.push(p);
+    return p;
+  }
+
+  async function onPlanField(el) {
+    const subj = subject();
+    const num = (v) => (v === "" ? null : Number(String(v).replace(/[^0-9.\-]/g, "")));
+    try {
+      const plan = await ensurePlanFor(subj.id);
+      if (el.dataset.planField) {
+        const f = el.dataset.planField;
+        const val = f === "goal_amount" ? num(el.value) ?? 0 : el.value.trim();
+        const row = await API.updatePlan(plan.id, { [f]: val });
+        Object.assign(plan, row);
+      } else {
+        const f = el.dataset.weekField, no = Number(el.dataset.week);
+        const val = ["pipeline", "closed_amount", "closed_ytd", "nps"].includes(f) ? num(el.value) : el.value.trim();
+        const row = await API.upsertWeek(plan.id, no, { [f]: val });
+        plan.plan_weeks = plan.plan_weeks || [];
+        const i = plan.plan_weeks.findIndex((w) => w.week_no === no);
+        if (i >= 0) plan.plan_weeks[i] = { ...plan.plan_weeks[i], ...row }; else plan.plan_weeks.push(row);
+      }
+      refreshPlanParts();
+      toast("Guardado");
+    } catch (e) { toast(e.message, true); }
+  }
+
+  // ---------------------------------------------------------------
+  //  VISTA: Equipo
+  // ---------------------------------------------------------------
+  function viewTeam() {
+    const subs = subordinates();
+    const ids = subs.map((p) => p.id);
+    const st = stats(ids);
+    const byPace = { ok: 0, warn: 0, bad: 0 };
+    const sellers = subs.filter((p) => p.role === "vendedor");
+    sellers.forEach((p) => { const s = stats(p.id).weekPace; if (s) byPace[s]++; });
+
+    const kpis = `<div class="grid g2m g4">
+      <div class="kpi"><div class="k-l">${icon("calendar", "sm")}Semana ${S.week}</div><div class="k-v num">${pctTxt(st.cur?.pct)}</div><div class="k-s">${st.cur?.done || 0}/${st.cur?.total || 0} tareas</div>${bar(st.cur?.pct)}</div>
+      <div class="kpi"><div class="k-l">${icon("map", "sm")}Mes</div><div class="k-v num">${pctTxt(st.monthPct)}</div><div class="k-s">${st.done}/${st.total} tareas</div>${bar(st.monthPct)}</div>
+      <div class="kpi"><div class="k-l">${icon("target", "sm")}Meta del equipo</div><div class="k-v num">${pctTxt(st.goalPct)}</div><div class="k-s num">${moneyK(st.closed)} de ${moneyK(st.goal)}</div>${bar(st.goalPct)}</div>
+      <div class="kpi"><div class="k-l">${icon("users", "sm")}Vendedores</div><div class="k-v num">${sellers.length}</div>
+        <div class="row wrap" style="gap:4px;margin-top:4px"><span class="status ok">${icon("check")}${byPace.ok} al día</span><span class="status warn">${icon("minus")}${byPace.warn} atención</span><span class="status bad">${icon("alert")}${byPace.bad} rezagado${byPace.bad === 1 ? "" : "s"}</span></div></div>
+    </div>`;
+
+    const set = new Set(ids);
+    const roots = subs.filter((p) => !p.manager_id || !set.has(p.manager_id));
+    const node = (p, depth) => {
+      const kids = children(p.id, subs);
+      if (!kids.length) return personCard(p);
+      return `<div class="group"><div class="group-head">${personCard(p, true)}</div>
+        <div class="group-children"><div class="grid ${depth === 0 && kids.some((k) => children(k.id, subs).length) ? "" : "g2"}">${kids.map((k) => node(k, depth + 1)).join("")}</div></div></div>`;
+    };
+    const leafRoots = roots.filter((p) => !children(p.id, subs).length);
+    const groupRoots = roots.filter((p) => children(p.id, subs).length);
+    const org = groupRoots.map((p) => node(p, 0)).join("") + (leafRoots.length ? `<div class="grid g2" style="margin-top:18px">${leafRoots.map((p) => personCard(p)).join("")}</div>` : "");
+
+    const ranking = sellers.map((p) => ({ p, s: stats(p.id) })).sort((a, b) => (b.s.monthPct ?? -1) - (a.s.monthPct ?? -1));
+    const rank = `<div class="list-card">${ranking.map(({ p, s }, i) => `<div class="user-row" data-act="open-person" data-id="${p.id}">
+        <div class="bold num muted" style="width:22px">${i + 1}</div>${avatar(p)}
+        <div class="grow"><div class="row between"><span class="bold ellipsis">${esc(p.full_name)}</span><span class="bold num">${pctTxt(s.monthPct)}</span></div>
+        ${bar(s.monthPct, s.monthPace === "bad" ? "brick" : s.monthPace === "warn" ? "olive" : "")}
+        <div class="row between xs muted" style="margin-top:4px"><span>${esc(S.by[p.manager_id]?.full_name || "")}</span><span>Meta ${pctTxt(s.goalPct)}</span></div></div></div>`).join("") || `<div class="empty">Sin vendedores</div>`}</div>`;
+
+    return `<header class="topbar"><div class="grow"><h1>Mi equipo</h1><div class="sub">${subs.length} personas bajo tu cargo</div></div>${monthSwitch()}</header>
+      ${kpis}
+      <div class="row between" style="margin:20px 0 4px"><div class="seg sm" style="width:240px;max-width:100%">
+        <button class="${S.teamMode === "org" ? "on" : ""}" data-act="team-mode" data-m="org">Organización</button>
+        <button class="${S.teamMode === "rank" ? "on" : ""}" data-act="team-mode" data-m="rank">Ranking</button></div>
+        <span class="xs muted">Anillo = avance semana ${S.week}</span></div>
+      ${S.teamMode === "org" ? org : `<div style="margin-top:12px">${rank}</div>`}`;
+  }
+
+  function personCard(p, isLead = false) {
+    const team = isLead ? [p.id, ...descendants(p.id).map((x) => x.id)] : [p.id];
+    const s = stats(team);
+    const n = team.length - 1;
+    return `<div class="person" data-act="open-person" data-id="${p.id}" style="${isLead ? "flex:1" : ""}">
+      ${avatar(p)}
+      <div class="grow" style="min-width:0">
+        <div class="p-name ellipsis">${esc(p.full_name)}</div>
+        <div class="p-role ellipsis">${ROLE[p.role]}${p.territory ? " · " + esc(p.territory) : ""}${isLead ? ` · equipo de ${n}` : ""}</div>
+        <div class="p-stats">${statusPill(s.weekPace)}<span class="xs muted num">Mes ${pctTxt(s.monthPct)} · Meta ${pctTxt(s.goalPct)}</span></div>
+      </div>
+      ${ring(s.cur?.pct, 50, 6, s.weekPace ? PACE_COLOR[s.weekPace] : "var(--green)")}
+    </div>`;
+  }
+
+  // ---------------------------------------------------------------
+  //  VISTA: Administración
+  // ---------------------------------------------------------------
+  function viewAdmin() {
+    const all = S.profiles.slice().sort((a, b) => RANK[b.role] - RANK[a.role] || a.full_name.localeCompare(b.full_name));
+    const q = S.adminQ.toLowerCase();
+    const f = S.adminFilter;
+    const list = all.filter((p) => (f === "all" ? p.active : f === "inactive" ? !p.active : p.role === f && p.active)
+      && (!q || p.full_name.toLowerCase().includes(q) || p.email.includes(q)));
+    const counts = { all: all.filter((p) => p.active).length, inactive: all.filter((p) => !p.active).length };
+    Object.keys(ROLE).forEach((r) => (counts[r] = all.filter((p) => p.role === r && p.active).length));
+
+    const users = `<div class="search" style="margin-top:14px">${icon("search")}<input class="input" id="admin-q" placeholder="Buscar por nombre o correo" value="${esc(S.adminQ)}"></div>
+      <div class="chips" style="margin:12px 0">${[["all", "Todos"], ["director_general", "Dir. general"], ["director", "Directores"], ["gerente", "Gerentes"], ["vendedor", "Vendedores"], ["inactive", "Inactivos"]]
+        .map(([k, l]) => `<button class="chip-btn ${f === k ? "on" : ""}" data-act="admin-filter" data-f="${k}">${l} <span class="muted">${counts[k]}</span></button>`).join("")}</div>
+      <div class="list-card">${list.map((p) => `<div class="user-row" data-act="edit-user" data-id="${p.id}">
+        ${avatar(p)}<div class="grow" style="min-width:0"><div class="row" style="gap:6px"><span class="bold ellipsis">${esc(p.full_name)}</span>${p.is_admin ? `<span class="chip green">${icon("shield", "sm")}Admin</span>` : ""}${!p.active ? `<span class="chip brick">Inactivo</span>` : ""}</div>
+        <div class="xs muted ellipsis">${esc(p.email)}</div>
+        <div class="xs muted ellipsis">${ROLE[p.role]}${p.manager_id ? " · reporta a " + esc(S.by[p.manager_id]?.full_name || "—") : ""}</div></div>${icon("chevR", "sm")}</div>`).join("") || `<div class="empty" style="border:0">Sin resultados</div>`}</div>`;
+
+    const roots = all.filter((p) => !p.manager_id || !S.by[p.manager_id]);
+    const tree = (p) => {
+      const kids = all.filter((x) => x.manager_id === p.id);
+      return `<li><span class="node" data-act="edit-user" data-id="${p.id}">${avatar(p)}<span><span class="bold small">${esc(p.full_name)}</span>${!p.active ? ' <span class="chip brick">Inactivo</span>' : ""}<br><span class="xs muted">${ROLE[p.role]}${p.territory ? " · " + esc(p.territory) : ""}</span></span></span>
+        ${kids.length ? `<ul>${kids.map(tree).join("")}</ul>` : ""}</li>`;
+    };
+    const org = `<div class="card tree" style="margin-top:14px;overflow-x:auto"><ul>${roots.map(tree).join("")}</ul></div>`;
+
+    return `<header class="topbar"><div class="grow"><h1>Administración</h1><div class="sub">Usuarios, roles y contraseñas</div></div>
+      <button class="btn" data-act="new-user">${icon("plus", "sm")}<span>Usuario</span></button></header>
+      <div class="seg" style="max-width:360px"><button class="${S.adminTab === "users" ? "on" : ""}" data-act="admin-tab" data-t="users">${icon("users", "sm")} Usuarios</button>
+        <button class="${S.adminTab === "org" ? "on" : ""}" data-act="admin-tab" data-t="org">${icon("tree", "sm")} Organigrama</button></div>
+      ${S.adminTab === "users" ? users : org}`;
+  }
+
+  const tempPassword = () => {
+    const words = ["Ruta", "Meta", "Visita", "Cliente", "Plan", "Norte", "Pacifico", "Volcan"];
+    const w = words[Math.floor(Math.random() * words.length)];
+    const n = Math.floor(1000 + Math.random() * 9000);
+    const a = "abcdefghjkmnpqrstuvwxyz"; const s = a[Math.floor(Math.random() * a.length)] + a[Math.floor(Math.random() * a.length)];
+    return `${w}-${n}-${s}`;
+  };
+
+  function managerOptions(role, selfId) {
+    return S.profiles.filter((p) => p.active && p.id !== selfId && RANK[p.role] > RANK[role] && !(selfId && isUnder(p.id, selfId)))
+      .sort((a, b) => RANK[b.role] - RANK[a.role] || a.full_name.localeCompare(b.full_name));
+  }
+
+  function openUserSheet(p) {
+    const isNew = !p;
+    const m = isNew ? { full_name: "", email: "", role: "vendedor", manager_id: "", territory: "", password: tempPassword(), is_admin: false, active: true }
+      : { ...p, manager_id: p.manager_id || "" };
+    let err = "";
+    openSheet({
+      title: () => (isNew ? "Nuevo usuario" : "Editar usuario"),
+      body: () => {
+        const mgrs = managerOptions(m.role, p?.id);
+        if (m.manager_id && !mgrs.some((x) => x.id === m.manager_id)) m.manager_id = "";
+        return `
+        ${!isNew ? `<div class="row" style="margin-bottom:16px">${avatar(m, "lg")}<div><div class="bold">${esc(p.full_name)}</div><div class="small muted">${esc(p.email)}</div></div></div>` : ""}
+        <label class="field"><span>Nombre completo</span><input class="input" data-bind="full_name" value="${esc(m.full_name)}" placeholder="Nombre y apellido"></label>
+        ${isNew ? `<label class="field"><span>Correo</span><input class="input" type="email" data-bind="email" value="${esc(m.email)}" placeholder="nombre@legrand.com" autocomplete="off"></label>` : ""}
+        <div class="field"><span>Rol</span><div class="chips">${Object.keys(ROLE).map((r) => `<button class="chip-btn ${m.role === r ? "on" : ""}" data-act="set" data-k="role" data-v="${r}">${ROLE[r]}</button>`).join("")}</div></div>
+        <label class="field"><span>Reporta a</span><select class="select" data-bind="manager_id">
+          <option value="">— Sin jefe asignado —</option>
+          ${mgrs.map((x) => `<option value="${x.id}" ${m.manager_id === x.id ? "selected" : ""}>${esc(x.full_name)} · ${ROLE[x.role]}</option>`).join("")}</select></label>
+        <label class="field"><span>Territorio</span><input class="input" data-bind="territory" value="${esc(m.territory || "")}" placeholder="Ej. Guanacaste"></label>
+        ${isNew ? `<label class="field"><span>Contraseña temporal</span><div class="row"><input class="input num" data-bind="password" value="${esc(m.password)}"><button class="icon-btn" data-act="regen" aria-label="Generar otra">${icon("refresh")}</button></div>
+          <div class="xs muted" style="margin-top:6px">Se le pedirá cambiarla en su primer ingreso.</div></label>`
+        : `<div class="card" style="margin-top:16px;padding:6px 14px;box-shadow:none">
+          <label class="switch"><span><span class="bold small">Administrador</span><br><span class="xs muted">Acceso a este centro de administración</span></span><input type="checkbox" data-bind="is_admin" ${m.is_admin ? "checked" : ""}></label>
+          <label class="switch" style="border-top:1px solid var(--line)"><span><span class="bold small">Usuario activo</span><br><span class="xs muted">Si se desactiva no podrá ingresar</span></span><input type="checkbox" data-bind="active" ${m.active ? "checked" : ""}></label></div>
+          <div class="grid g2m" style="margin-top:12px"><button class="btn ghost" data-act="reset-pass">${icon("key", "sm")}Restablecer contraseña</button>
+          <button class="btn danger" data-act="delete-user">${icon("trash", "sm")}Eliminar</button></div>`}
+        ${err ? `<div class="error-msg">${esc(err)}</div>` : ""}`;
+      },
+      foot: () => `<button class="btn ghost" data-act="close-sheet">Cancelar</button><button class="btn" data-act="save">${isNew ? "Crear usuario" : "Guardar"}</button>`,
+      model: m,
+      actions: {
+        set: (el) => { m[el.dataset.k] = el.dataset.v; SHEET.refresh(); },
+        regen: () => { m.password = tempPassword(); SHEET.refresh(); },
+        "reset-pass": () => openResetSheet(p),
+        "delete-user": async () => {
+          if (!(await confirmBox(`¿Eliminar a ${p.full_name}? Sus tareas y planes se borrarán y sus subordinados pasarán a su jefe.`))) return;
+          try { await API.admin("delete", { user_id: p.id }); closeSheet(); await reloadAll(); render(); toast("Usuario eliminado"); } catch (e) { toast(e.message, true); }
+        },
+        save: async (el) => {
+          err = "";
+          if (!m.full_name.trim()) { err = "Escribe el nombre"; return SHEET.refresh(); }
+          el.disabled = true;
+          try {
+            if (isNew) {
+              const r = await API.admin("create", { email: m.email, password: m.password, full_name: m.full_name.trim(), role: m.role, manager_id: m.manager_id || null, territory: m.territory || null });
+              await reloadAll(); closeSheet(); render();
+              openCredentialsSheet(m.full_name, m.email, m.password, r);
+            } else {
+              await API.updateProfile(p.id, { full_name: m.full_name.trim(), role: m.role, manager_id: m.manager_id || null, territory: m.territory || null, is_admin: !!m.is_admin });
+              if (m.active !== p.active) await API.admin("set_active", { user_id: p.id, active: !!m.active });
+              await reloadAll(); closeSheet(); render(); toast("Usuario actualizado");
+            }
+          } catch (e) { err = e.message; el.disabled = false; SHEET.refresh(); }
+        },
+      },
+    });
+  }
+
+  function openCredentialsSheet(name, email, pass) {
+    openSheet({
+      title: () => "Usuario creado",
+      body: () => `<div class="stack"><div class="small">Comparte estos datos con <b>${esc(name)}</b>. Deberá cambiar la contraseña al ingresar.</div>
+        <div class="field"><span>Correo</span><div class="input" style="display:flex;align-items:center">${esc(email)}</div></div>
+        <div class="field"><span>Contraseña temporal</span><div class="temp-pass">${esc(pass)}</div></div></div>`,
+      foot: () => `<button class="btn ghost" data-act="copy">${icon("copy", "sm")}Copiar</button><button class="btn" data-act="close-sheet">Listo</button>`,
+      actions: { copy: () => copyText(`Usuario: ${email}\nContraseña temporal: ${pass}\nIngreso: ${location.origin + location.pathname}`) },
+    });
+  }
+
+  function openResetSheet(p) {
+    let pass = tempPassword(), done = false, err = "";
+    openSheet({
+      title: () => "Restablecer contraseña",
+      body: () => `<div class="stack"><div class="row">${avatar(p)}<div><div class="bold">${esc(p.full_name)}</div><div class="small muted">${esc(p.email)}</div></div></div>
+        ${done ? `<div class="small">Listo. Comparte la nueva contraseña temporal; se le pedirá cambiarla al ingresar.</div>` : `<div class="small muted">Se asignará esta contraseña temporal:</div>`}
+        <div class="temp-pass">${esc(pass)}</div>${err ? `<div class="error-msg">${esc(err)}</div>` : ""}</div>`,
+      foot: () => done ? `<button class="btn ghost" data-act="copy">${icon("copy", "sm")}Copiar</button><button class="btn" data-act="close-sheet">Listo</button>`
+        : `<button class="btn ghost" data-act="regen">${icon("refresh", "sm")}Otra</button><button class="btn" data-act="confirm">Restablecer</button>`,
+      actions: {
+        regen: () => { pass = tempPassword(); SHEET.refresh(); },
+        copy: () => copyText(`Usuario: ${p.email}\nContraseña temporal: ${pass}`),
+        confirm: async (el) => {
+          el.disabled = true;
+          try { await API.admin("reset_password", { user_id: p.id, password: pass }); done = true; await loadProfiles(); } catch (e) { err = e.message; }
+          SHEET.refresh();
+        },
+      },
+    });
+  }
+
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); toast("Copiado"); } catch (_) { toast("No se pudo copiar; selecciónalo manualmente", true); }
+  }
+
+  // ---------------------------------------------------------------
+  //  VISTA: Perfil
+  // ---------------------------------------------------------------
+  function viewProfile() {
+    const p = S.me, boss = S.by[p.manager_id];
+    return `<header class="topbar"><div class="grow"><h1>Perfil</h1></div></header>
+      <div class="grid g2" style="align-items:start">
+      <div class="card"><div class="row">${avatar(p, "lg")}<div class="grow"><div class="bold" style="font-size:18px">${esc(p.full_name)}</div><div class="small muted">${esc(p.email)}</div>
+        <div class="row wrap" style="gap:6px;margin-top:8px"><span class="chip green">${ROLE[p.role]}</span>${p.is_admin ? `<span class="chip slate">${icon("shield", "sm")}Admin</span>` : ""}</div></div></div>
+        <div style="margin-top:16px" class="small">
+          <div class="row between" style="padding:8px 0;border-top:1px solid var(--line)"><span class="muted">Reporta a</span><b>${esc(boss?.full_name || "—")}</b></div>
+          <div class="row between" style="padding:8px 0;border-top:1px solid var(--line)"><span class="muted">Territorio</span><b>${esc(p.territory || "—")}</b></div>
+          ${hasTeam() ? `<div class="row between" style="padding:8px 0;border-top:1px solid var(--line)"><span class="muted">Personas a cargo</span><b>${subordinates().length}</b></div>` : ""}
+        </div></div>
+      <div class="card"><h3>${icon("key", "sm")} Cambiar contraseña</h3>
+        <form id="pwd-form">
+          <label class="field"><span>Nueva contraseña</span><input class="input" type="password" name="p1" minlength="8" autocomplete="new-password" required></label>
+          <label class="field"><span>Confirmar contraseña</span><input class="input" type="password" name="p2" minlength="8" autocomplete="new-password" required></label>
+          <div class="error-msg hidden" id="pwd-err"></div>
+          <button class="btn block" style="margin-top:14px">Actualizar contraseña</button>
+        </form></div>
+      </div>
+      <button class="btn ghost block" style="margin-top:16px" data-act="logout">${icon("logout", "sm")}Cerrar sesión</button>
+      ${API.mode === "demo" ? `<button class="btn danger block" style="margin-top:10px" data-act="reset-demo">${icon("refresh", "sm")}Reiniciar datos de demostración</button>` : ""}`;
+  }
+
+  // ---------------------------------------------------------------
+  //  Hoja de tarea
+  // ---------------------------------------------------------------
+  function openTaskSheet(task, defaults = {}) {
+    const isNew = !task;
+    const subj = subject();
+    const m = isNew ? {
+      owner_id: canManage(subj.id) ? subj.id : S.me.id, period: "semanal", month: S.month, week_no: S.week,
+      task_type: "visita", status: "pendiente", client: "", title: "", objective: "", due_date: "", checklist: {}, ...defaults,
+    } : JSON.parse(JSON.stringify(task));
+    const editable = canManage(m.owner_id);
+    const owners = S.profiles.filter((p) => p.active && canManage(p.id)).sort((a, b) => (a.id === S.me.id ? -1 : b.id === S.me.id ? 1 : a.full_name.localeCompare(b.full_name)));
+    const canDelete = !isNew && editable && (task.created_by === S.me.id || task.owner_id !== S.me.id);
+    const by = !isNew && task.created_by && task.created_by !== task.owner_id ? S.by[task.created_by] : null;
+    let err = "";
+    const ro = editable ? "" : "disabled";
+
+    openSheet({
+      title: () => (isNew ? "Nueva tarea" : editable ? "Editar tarea" : "Detalle de tarea"),
+      body: () => {
+        const weeks = D.weeksOfMonth(m.month);
+        return `
+        ${by ? `<div class="viewing" style="margin-bottom:14px">${icon("user", "sm")}<span>Asignada por <b>${esc(by.full_name)}</b></span></div>` : ""}
+        ${owners.length > 1 && isNew ? `<label class="field"><span>Responsable</span><select class="select" data-bind="owner_id">
+          ${owners.map((p) => `<option value="${p.id}" ${m.owner_id === p.id ? "selected" : ""}>${p.id === S.me.id ? "Yo" : esc(p.full_name)} · ${ROLE[p.role]}</option>`).join("")}</select></label>` : ""}
+        <div class="field"><span>Periodo</span><div class="seg">
+          <button class="${m.period === "semanal" ? "on" : ""}" data-act="set" data-k="period" data-v="semanal" ${ro}>Semanal</button>
+          <button class="${m.period === "mensual" ? "on" : ""}" data-act="set" data-k="period" data-v="mensual" ${ro}>Mensual</button></div></div>
+        ${m.period === "semanal" ? `<div class="field"><span>Semana de ${D.MES[D.parse(m.month).getMonth()]}</span><div class="chips">${weeks.map((w) => `<button class="chip-btn ${m.week_no === w.no ? "on" : ""}" data-act="set" data-k="week_no" data-v="${w.no}" data-num="1" ${ro}>S${w.no} <span class="muted xs">${D.rangeLabel(w)}</span></button>`).join("")}</div></div>` : ""}
+        <div class="field"><span>Tipo</span><div class="chips">${Object.entries(TYPES).map(([k, v]) => `<button class="chip-btn ${m.task_type === k ? "on" : ""}" data-act="set" data-k="task_type" data-v="${k}" ${ro}>${icon(v.i, "sm")}${v.l}</button>`).join("")}</div></div>
+        <label class="field"><span>Cliente</span><input class="input" data-bind="client" value="${esc(m.client || "")}" placeholder="Nombre del cliente o cuenta" ${ro}></label>
+        <label class="field"><span>Objetivo específico (SMART)</span><textarea class="textarea" data-bind="title" placeholder="Ej. Obtener orden de compra de la fase 1 antes del 30/09" ${ro}>${esc(m.title || "")}</textarea></label>
+        <label class="field"><span>Notas</span><textarea class="textarea" style="min-height:60px" data-bind="objective" placeholder="Detalle opcional" ${ro}>${esc(m.objective || "")}</textarea></label>
+        <label class="field"><span>Fecha (opcional)</span><input class="input" type="date" data-bind="due_date" value="${esc(m.due_date || "")}" ${ro}></label>
+        ${!isNew ? `<div class="field"><span>Estado</span><div class="seg">${Object.entries(STATUS).map(([k, l]) => `<button class="${m.status === k ? "on" : ""} ${k === "en_progreso" ? "olive" : ""}" data-act="set" data-k="status" data-v="${k}" ${ro}>${l}</button>`).join("")}</div></div>` : ""}
+        ${m.task_type === "visita" ? `<button class="btn soft block" style="margin-top:16px" data-act="checklist">${icon("clip", "sm")}Checklist de preparación de visita · ${pctTxt(checklistPct(m.checklist))}</button>` : ""}
+        ${err ? `<div class="error-msg">${esc(err)}</div>` : ""}`;
+      },
+      foot: () => editable
+        ? `${canDelete ? `<button class="icon-btn" style="width:46px;height:46px;color:var(--brick)" data-act="delete" aria-label="Eliminar">${icon("trash")}</button>` : ""}<button class="btn ghost" data-act="close-sheet">Cancelar</button><button class="btn" data-act="save">${isNew ? "Crear" : "Guardar"}</button>`
+        : `<button class="btn ghost" data-act="close-sheet">Cerrar</button>`,
+      model: m,
+      actions: {
+        set: (el) => { m[el.dataset.k] = el.dataset.num ? Number(el.dataset.v) : el.dataset.v; SHEET.refresh(); },
+        checklist: () => openChecklistSheet(m, (ck, status) => { m.checklist = ck; if (status) m.status = status; openTaskSheetResume(); }),
+        delete: async () => {
+          if (!(await confirmBox("¿Eliminar esta tarea?"))) return;
+          try { await API.deleteTask(task.id); S.tasks = S.tasks.filter((t) => t.id !== task.id); closeSheet(); render(); toast("Tarea eliminada"); } catch (e) { toast(e.message, true); }
+        },
+        save: async (el) => {
+          err = "";
+          if (!(m.title || "").trim() && !(m.client || "").trim()) { err = "Escribe al menos el cliente o el objetivo"; return SHEET.refresh(); }
+          if (!(m.title || "").trim()) m.title = `${TYPES[m.task_type].l} a ${m.client}`;
+          if (m.period === "semanal" && !m.week_no) m.week_no = S.week;
+          el.disabled = true;
+          try {
+            const row = await API.saveTask({ ...m, due_date: m.due_date || null });
+            const i = S.tasks.findIndex((t) => t.id === row.id);
+            if (i >= 0) S.tasks[i] = row; else S.tasks.push(row);
+            if (row.month === S.month && row.period === "semanal" && isNew) S.week = row.week_no;
+            closeSheet(); render(); toast(isNew ? "Tarea creada" : "Tarea guardada");
+          } catch (e) { err = e.message; el.disabled = false; SHEET.refresh(); }
+        },
+      },
+    });
+    // permite volver a esta hoja tras el checklist sin perder cambios
+    const snapshot = SHEET;
+    function openTaskSheetResume() {
+      closeSheet(true);
+      const bd = snapshot.bd, sh = snapshot.el;
+      document.body.append(bd, sh);
+      SHEET = snapshot; SHEET.refresh();
+      bd.classList.add("show"); sh.classList.add("show");
+      document.body.style.overflow = "hidden";
+    }
+  }
+
+  // ---------------------------------------------------------------
+  //  Hoja: Checklist de visita (Plantilla 3)
+  // ---------------------------------------------------------------
+  function openChecklistSheet(task, onDone) {
+    const ck = JSON.parse(JSON.stringify(task.checklist || {}));
+    ["research", "materials", "post"].forEach((k) => (ck[k] = ck[k] || {}));
+    ck.smart = ck.smart || {};
+    ck.pain_points = ck.pain_points || ["", "", ""];
+    const editable = canManage(task.owner_id);
+    const ro = editable ? "" : "disabled";
+    const secPct = (k) => CK[k].items.filter(([i]) => ck[k][i]).length / CK[k].items.length;
+    const smartDone = () => !!(ck.smart_objective || "").trim() && SMART.every(([k]) => ck.smart[k]);
+    const smartWarn = () => SMART.some(([k]) => ck.smart[k] === "parcial" || ck.smart[k] === "no");
+    const items = (k) => CK[k].items.map(([i, l]) => `<div class="ck-item ${ck[k][i] ? "on" : ""}" data-act="${editable ? "ck" : ""}" data-s="${k}" data-i="${i}" role="checkbox" aria-checked="${!!ck[k][i]}" tabindex="0">
+      <span class="box">${icon("check", "sm")}</span><span class="lbl">${l}</span></div>`).join("");
+    const segYN = (k) => `<div class="seg sm">${[["si", "Sí"], ["parcial", "Parcial"], ["no", "No"]].map(([v, l]) =>
+      `<button class="${ck.smart[k] === v ? "on" : ""} ${v === "no" ? "brick" : v === "parcial" ? "olive" : ""}" data-act="smart" data-k="${k}" data-v="${v}" ${ro}>${l}</button>`).join("")}</div>`;
+
+    openSheet({
+      wide: true,
+      title: () => `Preparación de visita`,
+      body: () => {
+        const p = checklistPct(ck);
+        const steps = [["ck-research", "Investigación", secPct("research") === 1], ["ck-materials", "Materiales", secPct("materials") === 1], ["ck-smart", "Objetivo SMART", smartDone()], ["ck-during", "Durante", !!ck.signals], ["ck-post", "Post-visita", secPct("post") === 1]];
+        return `<div class="row between"><div class="grow"><div class="bold">${esc(task.client || "Cliente")}</div><div class="small muted ellipsis">${esc(task.title || "")}</div></div>${ring(p, 54, 6, p >= 1 ? "var(--green)" : "var(--olive)")}</div>
+        <div class="ck-steps" style="margin-top:12px">${steps.map(([id, l, d]) => `<a href="#" data-act="scroll" data-to="${id}" class="${d ? "done" : ""}"><span class="dot"></span>${l}</a>`).join("")}</div>
+
+        <div class="ck-section" id="ck-research"><h4>${icon("search", "sm")}${CK.research.t}</h4><div class="hint">${CK.research.hint}</div>${items("research")}
+          <div class="grid g2" style="margin-top:10px"><label class="field"><span>Fecha última visita</span><input class="input" type="date" data-ck="last_visit_date" value="${esc(ck.last_visit_date || "")}" ${ro}></label>
+          <label class="field" style="margin-top:0"><span>Resultado última visita</span><input class="input" data-ck="last_visit_result" value="${esc(ck.last_visit_result || "")}" ${ro}></label></div>
+          <div class="field"><span>Pain points identificados</span>${[0, 1, 2].map((i) => `<input class="input" style="margin-top:${i ? 8 : 0}px" data-ck-pp="${i}" placeholder="${i + 1}." value="${esc(ck.pain_points[i] || "")}" ${ro}>`).join("")}</div></div>
+
+        <div class="ck-section" id="ck-materials"><h4>${icon("clip", "sm")}${CK.materials.t}</h4><div class="hint">${CK.materials.hint}</div>${items("materials")}</div>
+
+        <div class="ck-section" id="ck-smart"><h4>${icon("target", "sm")}Definición del objetivo (SMART)</h4><div class="hint">Un objetivo único y específico para la visita</div>
+          <label class="field"><span>Objetivo específico de la visita</span><textarea class="textarea" data-ck="smart_objective" ${ro}>${esc(ck.smart_objective || "")}</textarea></label>
+          <div style="margin-top:8px">${SMART.map(([k, l]) => `<div class="smart-row"><span class="small bold">${l}</span>${segYN(k)}</div>`).join("")}</div>
+          ${smartWarn() ? `<div class="chip olive" style="margin-top:8px;white-space:normal">${icon("alert", "sm")}Si algún criterio es Parcial o No, ajusta la preparación.</div>` : ""}</div>
+
+        <div class="ck-section" id="ck-during"><h4>${icon("users", "sm")}Durante la visita (memoria)</h4>
+          <label class="field"><span>Personas presentes</span><input class="input" data-ck="attendees" value="${esc(ck.attendees || "")}" ${ro}></label>
+          <label class="field"><span>Temas clave abordados</span><textarea class="textarea" style="min-height:60px" data-ck="topics" ${ro}>${esc(ck.topics || "")}</textarea></label>
+          <label class="field"><span>Objeciones encontradas</span><textarea class="textarea" style="min-height:60px" data-ck="objections" ${ro}>${esc(ck.objections || "")}</textarea></label>
+          <div class="field"><span>Señales de compra</span><div class="seg">${[["altas", "Altas"], ["medias", "Medias"], ["bajas", "Bajas"]].map(([v, l]) => `<button class="${ck.signals === v ? "on" : ""}" data-act="signals" data-v="${v}" ${ro}>${l}</button>`).join("")}</div></div></div>
+
+        <div class="ck-section" id="ck-post"><h4>${icon("check", "sm")}${CK.post.t}</h4><div class="hint">${CK.post.hint}</div>${items("post")}</div>`;
+      },
+      foot: () => editable
+        ? `<button class="btn ghost" data-act="back">Volver</button>${secPct("post") === 1 && task.status !== "completada" ? `<button class="btn" data-act="finish">${icon("check", "sm")}Guardar y completar</button>` : `<button class="btn" data-act="apply">Listo</button>`}`
+        : `<button class="btn" data-act="back">Volver</button>`,
+      mounted: (sh) => {
+        sh.querySelectorAll("[data-ck]").forEach((el) => el.addEventListener("input", () => (ck[el.dataset.ck] = el.value)));
+        sh.querySelectorAll("[data-ck-pp]").forEach((el) => el.addEventListener("input", () => (ck.pain_points[+el.dataset.ckPp] = el.value)));
+      },
+      actions: {
+        ck: (el) => { ck[el.dataset.s][el.dataset.i] = !ck[el.dataset.s][el.dataset.i]; SHEET.refresh(); },
+        smart: (el) => { ck.smart[el.dataset.k] = el.dataset.v; SHEET.refresh(); },
+        signals: (el) => { ck.signals = el.dataset.v; SHEET.refresh(); },
+        scroll: (el) => { const t = SHEET.el.querySelector("#" + el.dataset.to); t && t.scrollIntoView({ behavior: "smooth", block: "start" }); },
+        back: () => onDone(task.checklist || {}, null),
+        apply: () => onDone(ck, task.status === "pendiente" && checklistPct(ck) > 0 ? "en_progreso" : null),
+        finish: () => onDone(ck, "completada"),
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------
+  //  Hoja de riesgo
+  // ---------------------------------------------------------------
+  function openRiskSheet(risk) {
+    const subj = subject(), isNew = !risk;
+    const editable = canManage(subj.id);
+    const m = isNew ? { description: "", impact: "medio", mitigation: "", due_date: "", resolved: false } : { ...risk };
+    let err = "";
+    const ro = editable ? "" : "disabled";
+    openSheet({
+      title: () => (isNew ? "Nuevo riesgo" : "Riesgo"),
+      body: () => `
+        <label class="field"><span>Riesgo / problema</span><textarea class="textarea" data-bind="description" placeholder="Ej. Competencia agresiva en precio" ${ro}>${esc(m.description)}</textarea></label>
+        <div class="field"><span>Impacto</span><div class="seg">${Object.entries(IMPACT).map(([k, v]) => `<button class="${m.impact === k ? "on" : ""} ${k === "alto" ? "brick" : k === "medio" ? "olive" : ""}" data-act="set" data-k="impact" data-v="${k}" ${ro}>${v.l}</button>`).join("")}</div></div>
+        <label class="field"><span>Acción mitigante</span><textarea class="textarea" style="min-height:60px" data-bind="mitigation" ${ro}>${esc(m.mitigation || "")}</textarea></label>
+        <label class="field"><span>Plazo</span><input class="input" type="date" data-bind="due_date" value="${esc(m.due_date || "")}" ${ro}></label>
+        ${!isNew ? `<label class="switch"><span class="bold small">Resuelto</span><input type="checkbox" data-bind="resolved" ${m.resolved ? "checked" : ""} ${ro}></label>` : ""}
+        ${err ? `<div class="error-msg">${esc(err)}</div>` : ""}`,
+      foot: () => editable ? `${!isNew ? `<button class="icon-btn" style="width:46px;height:46px;color:var(--brick)" data-act="delete" aria-label="Eliminar">${icon("trash")}</button>` : ""}<button class="btn ghost" data-act="close-sheet">Cancelar</button><button class="btn" data-act="save">Guardar</button>` : `<button class="btn ghost" data-act="close-sheet">Cerrar</button>`,
+      model: m,
+      actions: {
+        set: (el) => { m[el.dataset.k] = el.dataset.v; SHEET.refresh(); },
+        delete: async () => {
+          if (!(await confirmBox("¿Eliminar este riesgo?"))) return;
+          try { await API.deleteRisk(risk.id); const p = planOf(subj.id); p.plan_risks = p.plan_risks.filter((r) => r.id !== risk.id); closeSheet(); render(); } catch (e) { toast(e.message, true); }
+        },
+        save: async (el) => {
+          if (!m.description.trim()) { err = "Describe el riesgo"; return SHEET.refresh(); }
+          el.disabled = true;
+          try {
+            const plan = await ensurePlanFor(subj.id);
+            const row = await API.saveRisk({ ...m, plan_id: plan.id });
+            plan.plan_risks = plan.plan_risks || [];
+            const i = plan.plan_risks.findIndex((r) => r.id === row.id);
+            if (i >= 0) plan.plan_risks[i] = row; else plan.plan_risks.push(row);
+            closeSheet(); render(); toast("Riesgo guardado");
+          } catch (e) { err = e.message; el.disabled = false; SHEET.refresh(); }
+        },
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------
+  //  Login / cambio obligatorio de contraseña
+  // ---------------------------------------------------------------
+  function renderLogin(msg = "") {
+    const demo = API.mode === "demo";
+    const users = demo ? API.demoUsers().sort((a, b) => RANK[b.role] - RANK[a.role]) : [];
+    app().innerHTML = `<div class="login-wrap"><div class="login-card">
+      <div class="brand"><div class="brand-mark">${icon("route")}</div><div>${esc(CFG.APP_NAME || "Ruta Comercial")}<div class="xs muted" style="font-weight:600">Método Legrand</div></div></div>
+      <h1>Bienvenido 👋</h1><div class="muted small">Planifica tus visitas y sigue tu avance.</div>
+      <form id="login-form" style="margin-top:20px">
+        <label class="field"><span>Correo</span><input class="input" type="email" name="email" autocomplete="username" required placeholder="nombre@legrand.com"></label>
+        <label class="field"><span>Contraseña</span><input class="input" type="password" name="password" autocomplete="current-password" ${demo ? "" : "required"} placeholder="${demo ? "(no se requiere en demo)" : "••••••••"}"></label>
+        <div class="error-msg ${msg ? "" : "hidden"}" id="login-err">${esc(msg)}</div>
+        <button class="btn block" style="margin-top:18px">Ingresar</button>
+      </form>
+      <div class="xs muted" style="margin-top:14px;text-align:center">¿Olvidaste tu contraseña? Pide al administrador que la restablezca.</div>
+      ${demo ? `<div class="demo-note">Modo demo: datos de ejemplo guardados solo en este navegador. Elige un usuario para probar cada rol.</div>
+        <div class="demo-users">${users.map((u) => `<button class="demo-user" data-act="demo-login" data-email="${esc(u.email)}">${avatar(u)}<div class="grow"><div class="bold small">${esc(u.full_name)}</div><div class="xs muted">${ROLE[u.role]}${u.is_admin ? " · Admin" : ""}${u.territory ? " · " + esc(u.territory) : ""}</div></div>${icon("chevR", "sm")}</button>`).join("")}</div>` : ""}
+    </div></div>`;
+  }
+
+  function renderForcePassword() {
+    app().innerHTML = `<div class="login-wrap"><div class="login-card">
+      <div class="brand"><div class="brand-mark">${icon("key")}</div><div>Crea tu contraseña</div></div>
+      <h1>Hola, ${esc(firstName(S.me.full_name))}</h1><div class="muted small">Estás usando una contraseña temporal. Crea una nueva para continuar.</div>
+      <form id="pwd-form" style="margin-top:20px">
+        <label class="field"><span>Nueva contraseña</span><input class="input" type="password" name="p1" minlength="8" autocomplete="new-password" required></label>
+        <label class="field"><span>Confirmar contraseña</span><input class="input" type="password" name="p2" minlength="8" autocomplete="new-password" required></label>
+        <div class="error-msg hidden" id="pwd-err"></div>
+        <button class="btn block" style="margin-top:18px">Guardar y entrar</button>
+      </form>
+      <button class="btn ghost block" style="margin-top:10px" data-act="logout">Salir</button>
+    </div></div>`;
+  }
+
+  async function afterLogin() {
+    S.me = await API.getMe();
+    if (!S.me) throw new Error("Tu usuario no tiene perfil. Contacta al administrador.");
+    if (!S.me.active) { await API.signOut(); throw new Error("Tu usuario está desactivado."); }
+    if (!location.hash) location.hash = "#/home";
+    parseHash();
+    await reloadAll();
+    render();
+  }
+
+  // ---------------------------------------------------------------
+  //  Eventos (delegación)
+  // ---------------------------------------------------------------
+  const ACT = {
+    month: (el) => setMonth(Number(el.dataset.d)),
+    week: (el) => { S.week = Number(el.dataset.no); render(); },
+    goto: (el) => go(el.dataset.to),
+    "open-person": (el) => go("#/home/" + el.dataset.id),
+    "new-task": (el) => openTaskSheet(null, {
+      ...(el.dataset.period ? { period: el.dataset.period } : {}),
+      ...(el.dataset.week ? { week_no: Number(el.dataset.week) } : {}),
+    }),
+    "edit-task": (el) => { const t = S.tasks.find((x) => x.id === el.dataset.id); t && openTaskSheet(t); },
+    toggle: async (el) => {
+      const t = S.tasks.find((x) => x.id === el.dataset.id); if (!t) return;
+      const prev = t.status;
+      t.status = t.status === "completada" ? "pendiente" : "completada";
+      render();
+      try {
+        const row = await API.saveTask({ id: t.id, owner_id: t.owner_id, status: t.status });
+        Object.assign(t, row);
+        if (t.status === "completada") toast("¡Bien hecho! Tarea completada");
+      } catch (e) { t.status = prev; render(); toast(e.message, true); }
+    },
+    "new-risk": () => openRiskSheet(null),
+    "edit-risk": (el) => { const r = (planOf(subject().id)?.plan_risks || []).find((x) => x.id === el.dataset.id); r && openRiskSheet(r); },
+    "team-mode": (el) => { S.teamMode = el.dataset.m; render(); },
+    "admin-tab": (el) => { S.adminTab = el.dataset.t; render(); },
+    "admin-filter": (el) => { S.adminFilter = el.dataset.f; render(); },
+    "new-user": () => openUserSheet(null),
+    "edit-user": (el) => { const p = S.by[el.dataset.id]; p && openUserSheet(p); },
+    logout: async () => { await API.signOut(); S.me = null; S.profiles = []; S.tasks = []; S.plans = []; location.hash = ""; renderLogin(); },
+    "reset-demo": async () => { if (!(await confirmBox("¿Reiniciar todos los datos de demostración?", "Reiniciar"))) return; API.resetDemo(); S.me = null; location.hash = ""; renderLogin(); },
+    "demo-login": async (el) => { try { await API.signIn(el.dataset.email, ""); await afterLogin(); } catch (e) { renderLogin(e.message); } },
+    "close-sheet": () => closeSheet(),
+  };
+
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-act]");
+    if (!el || el.disabled) return;
+    const act = el.dataset.act;
+    if (!act) return;
+    if (el.tagName === "A") e.preventDefault();
+    if (SHEET && SHEET.el.contains(el) && SHEET.actions && SHEET.actions[act]) return SHEET.actions[act](el, e);
+    if (ACT[act]) ACT[act](el, e);
+  });
+
+  // Enlace de campos del formulario en hojas
+  document.addEventListener("input", (e) => {
+    const el = e.target;
+    if (SHEET && SHEET.model && SHEET.el.contains(el) && el.dataset.bind) {
+      SHEET.model[el.dataset.bind] = el.type === "checkbox" ? el.checked : el.value;
+    }
+    if (el.id === "admin-q") {
+      S.adminQ = el.value; const pos = el.selectionStart; render();
+      const n = $("#admin-q"); if (n) { n.focus(); n.setSelectionRange(pos, pos); }
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const el = e.target;
+    if (SHEET && SHEET.model && SHEET.el.contains(el) && el.dataset.bind) {
+      SHEET.model[el.dataset.bind] = el.type === "checkbox" ? el.checked : el.value;
+      if (el.tagName === "SELECT") SHEET.refresh();
+      return;
+    }
+    if ((el.dataset.planField || el.dataset.weekField) && !el.readOnly) onPlanField(el);
+  });
+  document.addEventListener("toggle", (e) => {
+    const d = e.target; if (d.dataset && d.dataset.weekAcc) S.openWeeks[d.dataset.weekAcc] = d.open;
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && SHEET) closeSheet();
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches(".ck-item")) { e.preventDefault(); e.target.click(); }
+  });
+
+  document.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    if (f.id === "login-form") {
+      const btn = f.querySelector("button"); btn.disabled = true;
+      try { await API.signIn(f.email.value, f.password.value); await afterLogin(); }
+      catch (err) { renderLogin(err.message); }
+    }
+    if (f.id === "pwd-form") {
+      const errEl = $("#pwd-err");
+      const show = (m) => { errEl.textContent = m; errEl.classList.remove("hidden"); };
+      if (f.p1.value.length < 8) return show("Usa al menos 8 caracteres");
+      if (f.p1.value !== f.p2.value) return show("Las contraseñas no coinciden");
+      const btn = f.querySelector("button"); btn.disabled = true;
+      try {
+        await API.changePassword(f.p1.value);
+        S.me.must_change_password = false; if (S.by[S.me.id]) S.by[S.me.id].must_change_password = false;
+        f.reset(); toast("Contraseña actualizada");
+        if (!S.profiles.length) await reloadAll();
+        render();
+      } catch (err) { show(err.message); btn.disabled = false; }
+    }
+  });
+
+  // Tooltip para gráficos y columnas semanales (hover en escritorio)
+  const tip = document.createElement("div"); tip.className = "chart-tip"; document.body.appendChild(tip);
+  document.addEventListener("mousemove", (e) => {
+    const t = e.target.closest && e.target.closest("[data-tip]");
+    if (!t) { tip.style.opacity = 0; return; }
+    tip.textContent = t.getAttribute("data-tip");
+    tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = e.clientY - 34 + "px"; tip.style.opacity = 1;
+  });
+
+  // ---------------------------------------------------------------
+  //  Arranque
+  // ---------------------------------------------------------------
+  (async function start() {
+    app().innerHTML = `<div class="spinner"></div>`;
+    API.onSignedOut(() => { S.me = null; renderLogin(); });
+    try {
+      const uid = await API.init();
+      if (!uid) return renderLogin();
+      await afterLogin();
+    } catch (e) { renderLogin(e.message); }
+  })();
+})();
+
+  </script>
+</body>
+</html>
