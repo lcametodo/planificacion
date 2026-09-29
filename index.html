@@ -11,8 +11,8 @@
        ================================================================= -->
   <script>
     window.APP_CONFIG = {
-      SUPABASE_URL: https://iecfgpqnnsxmnmbxnfcp.supabase.co/rest/v1/,        // ej. "https://iecfgpqnnsxmnmbxnfcp.supabase.co/rest/v1/"
-      SUPABASE_ANON_KEY: sb_publishable_Mt2sdPIzEcfbKv15x4-JTQ_Tf6csjiH,   // clave "anon" o "publishable" (NUNCA la service_role)
+      SUPABASE_URL: https://iecfgpqnnsxmnmbxnfcp.supabase.co,   // solo la URL del proyecto, sin /rest/v1/
+      SUPABASE_ANON_KEY: sb_publishable_Mt2sdPIzEcfbKv15x4-JTQ_Tf6csjiH,   // clave "publishable" (NUNCA la secret / service_role)
       APP_NAME: "Ruta Comercial",
       CURRENCY_SYMBOL: "$",
     };
@@ -419,7 +419,7 @@ a { color: var(--green); }
 .avatar.r-gerente { background: var(--olive-50); color: var(--olive); }
 .p-name { font-weight: 700; }
 .p-role { font-size: 12px; color: var(--ink-3); }
-.p-stats { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+.p-stats { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; }
 .group { margin-top: 18px; }
 .group-head { display: flex; align-items: center; gap: 10px; margin: 0 2px 10px; }
 .group-head .line { flex: 1; height: 1px; background: var(--line); }
@@ -501,6 +501,21 @@ a { color: var(--green); }
 .confirm-wrap { position: fixed; inset: 0; z-index: 70; background: rgba(8, 20, 18, .45); display: grid; place-items: center; padding: 16px; }
 .confirm-box { width: 100%; max-width: 380px; background: var(--surface); border-radius: 20px; padding: 20px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); }
 
+.auto-val { min-height: 46px; display: flex; align-items: center; padding: 0 12px; border-radius: 12px; background: var(--green-50); color: var(--green); font-weight: 700; border: 1.5px dashed var(--green-100); }
+.lock-note { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 14px; font-size: 13px; margin-bottom: 12px; background: var(--slate-50); color: var(--ink-2); }
+.lock-note .icon { margin-top: 1px; color: var(--slate); flex: none; }
+.lock-note.warn { background: var(--olive-50); } .lock-note.warn .icon { color: var(--olive); }
+.lock-note.info { background: var(--green-50); } .lock-note.info .icon { color: var(--green); }
+.grid > .field + .field { margin-top: 0; }
+
+.data-alert { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 16px; margin-bottom: 14px; background: var(--brick-50); border: 1px solid color-mix(in srgb, var(--brick) 25%, transparent); color: var(--ink); }
+.data-alert .da-ico { width: 34px; height: 34px; border-radius: 10px; background: var(--brick); color: #fff; display: grid; place-items: center; flex: none; }
+.data-alert .da-ico .icon { width: 18px; height: 18px; }
+.data-alert ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
+.data-alert li + li { margin-top: 2px; }
+.data-alert .btn { flex: none; align-self: center; background: var(--brick); }
+@media (max-width: 520px) { .data-alert { flex-wrap: wrap; } .data-alert .btn { width: 100%; } }
+
   </style>
 </head>
 <body>
@@ -562,7 +577,11 @@ a { color: var(--green); }
   const shortDate = (s) => { if (!s) return ""; const d = parse(s); return `${d.getDate()} ${MES_C[d.getMonth()]}`; };
   const addMonths = (mk, n) => { const d = parse(mk); return monthKey(new Date(d.getFullYear(), d.getMonth() + n, 1)); };
 
-  window.RC_DATES = { pad, monthKey, parse, iso, weeksOfMonth, weekNoOf, elapsedFraction, monthLabel, rangeLabel, shortDate, addMonths, MES };
+  // Cierre de meses: el mes M se bloquea el día 1 del mes M+2
+  const lockDate = (mk) => { const d = parse(mk); return new Date(d.getFullYear(), d.getMonth() + 2, 1); };
+  const isPastLock = (mk, now = new Date()) => now >= lockDate(mk);
+
+  window.RC_DATES = { lockDate, isPastLock, pad, monthKey, parse, iso, weeksOfMonth, weekNoOf, elapsedFraction, monthLabel, rangeLabel, shortDate, addMonths, MES };
 })();
 
   </script>
@@ -588,7 +607,7 @@ a { color: var(--green); }
 
     function traducir(m) {
       if (/Invalid login credentials/i.test(m)) return "Correo o contraseña incorrectos";
-      if (/row-level security/i.test(m)) return "No tienes permiso para esta acción";
+      if (/row-level security/i.test(m)) return "No tienes permiso para esta acción o el mes ya está cerrado";
       if (/banned/i.test(m)) return "Tu usuario está desactivado. Contacta al administrador.";
       if (/should be different/i.test(m)) return "La nueva contraseña debe ser diferente a la anterior";
       return m;
@@ -634,6 +653,10 @@ a { color: var(--green); }
       },
       async listPlans(month) {
         return ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)").eq("month", month));
+      },
+      async listYearWeeks(year) {
+        return ok(await sb.from("monthly_plans").select("owner_id, month, plan_weeks(week_no, closed_amount)")
+          .gte("month", `${year}-01-01`).lte("month", `${year}-12-01`));
       },
       async ensurePlan(ownerId, month) {
         const found = ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)")
@@ -694,7 +717,11 @@ a { color: var(--green); }
       return false;
     }
     const canSee = (t) => { const m = me(); return !!m && (t === m.id || m.is_admin || m.role === "director_general" || isUnder(t, m.id)); };
-    const canManage = (t) => { const m = me(); return !!m && (t === m.id || m.role === "director_general" || isUnder(t, m.id)); };
+    const canManage = (t) => { const m = me(); return !!m && (t === m.id || m.is_admin || m.role === "director_general" || isUnder(t, m.id)); };
+    const isLocked = (owner, month) => P(owner)?.role === "vendedor" && window.RC_DATES.isPastLock(month);
+    const canEdit = (owner, month) => { const m = me(); return canManage(owner) && (!isLocked(owner, month) || m.is_admin || ["director", "director_general"].includes(m.role)); };
+    const lockedMsg = () => { throw new Error("Este mes está cerrado. Solo un director o el administrador puede modificarlo."); };
+    const guard = (owner, month) => { if (!canManage(owner)) deny(); if (!canEdit(owner, month)) lockedMsg(); };
     const deny = () => { throw new Error("No tienes permiso para esta acción"); };
     const withPlan = (p) => ({ ...clone(p), plan_weeks: clone(db.weeks.filter((w) => w.plan_id === p.id)), plan_risks: clone(db.risks.filter((r) => r.plan_id === p.id)) });
 
@@ -727,10 +754,12 @@ a { color: var(--green); }
       async listTasks(month) { return clone(db.tasks.filter((t) => t.month === month && canSee(t.owner_id))); },
       async saveTask(t) {
         if (!canManage(t.owner_id)) deny();
+        if (t.month) guard(t.owner_id, t.month);
         const now = new Date().toISOString();
         if (t.id) {
           const cur = db.tasks.find((x) => x.id === t.id);
-          if (!cur || !canManage(cur.owner_id)) deny();
+          if (!cur) deny();
+          guard(cur.owner_id, cur.month);
           const wasDone = cur.status === "completada";
           Object.assign(cur, t, { created_by: cur.created_by, updated_at: now });
           if (cur.status === "completada" && !wasDone) cur.completed_at = now;
@@ -746,35 +775,40 @@ a { color: var(--green); }
       async deleteTask(tid) {
         const t = db.tasks.find((x) => x.id === tid);
         if (!t || !canManage(t.owner_id) || !(t.created_by === uid || t.owner_id !== uid)) throw new Error("No tienes permiso para eliminar esta tarea");
+        guard(t.owner_id, t.month);
         db.tasks = db.tasks.filter((x) => x.id !== tid); save();
       },
       async listPlans(month) { return db.plans.filter((p) => p.month === month && canSee(p.owner_id)).map(withPlan); },
+      async listYearWeeks(year) {
+        return db.plans.filter((p) => p.month.startsWith(String(year)) && canSee(p.owner_id))
+          .map((p) => ({ owner_id: p.owner_id, month: p.month, plan_weeks: db.weeks.filter((w) => w.plan_id === p.id).map((w) => ({ week_no: w.week_no, closed_amount: w.closed_amount })) }));
+      },
       async ensurePlan(ownerId, month) {
         let p = db.plans.find((x) => x.owner_id === ownerId && x.month === month);
         if (p) { if (!canSee(ownerId)) deny(); return withPlan(p); }
-        if (!canManage(ownerId)) deny();
+        guard(ownerId, month);
         p = { id: id(), owner_id: ownerId, month, territory: P(ownerId)?.territory || "", goal_amount: 0, notes: "" };
         db.plans.push(p); save(); return withPlan(p);
       },
       async updatePlan(pid, patch) {
-        const p = db.plans.find((x) => x.id === pid); if (!p || !canManage(p.owner_id)) deny();
+        const p = db.plans.find((x) => x.id === pid); if (!p) deny(); guard(p.owner_id, p.month);
         Object.assign(p, patch); save(); return clone(p);
       },
       async upsertWeek(planId, weekNo, patch) {
-        const p = db.plans.find((x) => x.id === planId); if (!p || !canManage(p.owner_id)) deny();
+        const p = db.plans.find((x) => x.id === planId); if (!p) deny(); guard(p.owner_id, p.month);
         let w = db.weeks.find((x) => x.plan_id === planId && x.week_no === weekNo);
         if (!w) { w = { id: id(), plan_id: planId, week_no: weekNo }; db.weeks.push(w); }
         Object.assign(w, patch); save(); return clone(w);
       },
       async saveRisk(r) {
-        const p = db.plans.find((x) => x.id === r.plan_id); if (!p || !canManage(p.owner_id)) deny();
+        const p = db.plans.find((x) => x.id === r.plan_id); if (!p) deny(); guard(p.owner_id, p.month);
         if (r.id) { const cur = db.risks.find((x) => x.id === r.id); Object.assign(cur, r); save(); return clone(cur); }
         const row = { ...r, id: id(), created_by: uid, created_at: new Date().toISOString() };
         db.risks.push(row); save(); return clone(row);
       },
       async deleteRisk(rid) {
         const r = db.risks.find((x) => x.id === rid); const p = r && db.plans.find((x) => x.id === r.plan_id);
-        if (!p || !canManage(p.owner_id)) deny();
+        if (!p) deny(); guard(p.owner_id, p.month);
         db.risks = db.risks.filter((x) => x.id !== rid); save();
       },
       async updateProfile(pid, patch) {
@@ -799,7 +833,7 @@ a { color: var(--green); }
           if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("Correo inválido");
           if (db.profiles.some((p) => p.email === email)) throw new Error("Ya existe un usuario con ese correo");
           if ((b.password || "").length < 8) throw new Error("La contraseña debe tener al menos 8 caracteres");
-          const p = { id: id(), email, full_name: b.full_name || email.split("@")[0], role: b.role, manager_id: b.manager_id || null, territory: b.territory || null, is_admin: false, active: true, must_change_password: true };
+          const p = { id: id(), email, full_name: b.full_name || email.split("@")[0], role: b.role, manager_id: b.manager_id || null, territory: b.territory || null, is_admin: false, active: true, must_change_password: true, created_at: new Date().toISOString() };
           db.profiles.push(p); save(); return { ok: true, id: p.id };
         }
         if (action === "reset_password") { P(b.user_id).must_change_password = true; save(); return { ok: true }; }
@@ -855,7 +889,7 @@ a { color: var(--green); }
       "Levantar requerimiento de cableado Datacom", "Negociar condiciones del proyecto fase 2", "Capacitación técnica al equipo de obra",
       "Revisar especificación con el ingeniero eléctrico", "Seguimiento a orden de compra pendiente", "Presentar casos de éxito del sector hotelero"];
     const actions = ["Capacitación en Datacom", "Lanzamiento nueva línea de mecanismos", "Campaña UPS para data centers", "Visitas conjuntas con distribuidor"];
-    const types = ["visita", "visita", "visita", "llamada", "seguimiento", "accion"];
+    const types = ["visita", "visita", "visita", "capacitacion", "llamada", "seguimiento", "accion"];
 
     const today = new Date();
     const months = [new Date(today.getFullYear(), today.getMonth() - 1, 1), new Date(today.getFullYear(), today.getMonth(), 1)];
@@ -878,10 +912,12 @@ a { color: var(--green); }
         for (const w of wks) {
           const past = !isCur || w.no < curWeek, current = isCur && w.no === curWeek;
           const wk = { id: uuid(), plan_id: plan.id, week_no: w.no, main_location: v.territory.split(" · ")[0], corporate_action: pick(actions) };
-          if (past || current) {
+          // Demo: algunos vendedores olvidaron registrar la semana anterior (para ver la alerta)
+          const forgot = isCur && w.no === curWeek - 1 && (v === vend[0] || v === vend[4]);
+          if ((past || current) && !forgot) {
             const closed = Math.round((goal / wks.length) * (0.4 + skill[v.id] * 0.9) / 100) * 100;
             ytd += closed;
-            Object.assign(wk, { pipeline: Math.round(goal * (2 + rnd() * 2) / 1000) * 1000, closed_amount: current ? Math.round(closed * 0.5 / 100) * 100 : closed, closed_ytd: ytd, nps: Math.round(30 + rnd() * 50) });
+            Object.assign(wk, { pipeline: Math.round(goal * (2 + rnd() * 2) / 1000) * 1000, closed_amount: current ? Math.round(closed * 0.5 / 100) * 100 : closed });
           }
           weeks.push(wk);
           const n = 3 + Math.floor(rnd() * 2);
@@ -917,7 +953,8 @@ a { color: var(--green); }
     return { profiles, tasks, plans, weeks, risks };
   }
 
-  window.RC_API = CFG.SUPABASE_URL ? SupabaseApi() : DemoApi();
+  // Si falta la librería de Supabase (sin internet o red que bloquea cdn.jsdelivr.net) no se inicia la conexión
+  window.RC_API = CFG.SUPABASE_URL ? (window.supabase ? SupabaseApi() : null) : DemoApi();
 })();
 
   </script>
@@ -939,7 +976,7 @@ a { color: var(--green); }
   const ROLE_PL = { director_general: "Dirección general", director: "Directores", gerente: "Gerentes", vendedor: "Vendedores" };
   const RANK = { director_general: 4, director: 3, gerente: 2, vendedor: 1 };
   const TYPES = {
-    visita: { l: "Visita", i: "pin" }, llamada: { l: "Llamada", i: "phone" }, seguimiento: { l: "Seguimiento", i: "refresh" },
+    visita: { l: "Visita", i: "pin" }, capacitacion: { l: "Capacitación", i: "cap" }, llamada: { l: "Llamada", i: "phone" }, seguimiento: { l: "Seguimiento", i: "refresh" },
     accion: { l: "Acción", i: "flag" }, otro: { l: "Otro", i: "dot" },
   };
   const STATUS = { pendiente: "Pendiente", en_progreso: "En progreso", completada: "Completada" };
@@ -961,7 +998,6 @@ a { color: var(--green); }
       ["email", "Enviar resumen de reunión por email"], ["crm", "Registrar información en CRM"],
       ["next_steps", "Confirmar próximos pasos con el cliente"], ["schedule", "Programar próxima visita o seguimiento"]] },
   };
-  const SMART = [["specific", "¿Es Específico?"], ["measurable", "¿Es Medible?"], ["realistic", "¿Es Realista?"], ["timely", "¿Es Temporal?"]];
 
   // ---------------------------------------------------------------
   //  Iconos (trazos simples 24×24)
@@ -988,6 +1024,8 @@ a { color: var(--green); }
     trend: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
     tree: '<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2h12v2"/>',
     edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', route: '<circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/>',
+    cap: '<path d="M2 9.5 12 5l10 4.5-10 4.5L2 9.5z"/><path d="M6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9.5V15"/>',
+    lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>',
     smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/>',
   };
   const icon = (n, cls = "") => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ""}</svg>`;
@@ -997,7 +1035,7 @@ a { color: var(--green); }
   // ---------------------------------------------------------------
   const today = new Date();
   const S = {
-    me: null, profiles: [], by: {}, tasks: [], plans: [],
+    me: null, profiles: [], by: {}, tasks: [], plans: [], yearWeeks: [],
     month: D.monthKey(today), week: D.weekNoOf(today),
     route: "home", param: null, teamMode: "org", adminTab: "users", adminFilter: "all", adminQ: "",
     openWeeks: {},
@@ -1027,8 +1065,12 @@ a { color: var(--green); }
     return false;
   }
   const canSee = (id) => !!S.me && (id === S.me.id || S.me.is_admin || S.me.role === "director_general" || isUnder(id, S.me.id));
-  const canManage = (id) => !!S.me && (id === S.me.id || S.me.role === "director_general" || isUnder(id, S.me.id));
-  const subordinates = () => S.profiles.filter((p) => p.id !== S.me.id && p.active && canManage(p.id) && canSee(p.id));
+  const canManage = (id) => !!S.me && (id === S.me.id || S.me.is_admin || S.me.role === "director_general" || isUnder(id, S.me.id));
+  // Cierre de meses: datos de VENDEDORES del mes M se bloquean el día 1 del mes M+2
+  const isLocked = (ownerId, month = S.month) => S.by[ownerId]?.role === "vendedor" && D.isPastLock(month);
+  const canOverrideLock = () => !!S.me && (S.me.is_admin || S.me.role === "director" || S.me.role === "director_general");
+  const canEdit = (ownerId, month = S.month) => canManage(ownerId) && (!isLocked(ownerId, month) || canOverrideLock());
+  const subordinates = () => S.profiles.filter((p) => p.id !== S.me.id && p.active && canSee(p.id) && (S.me.role === "director_general" || S.me.is_admin || isUnder(p.id, S.me.id)));
   const hasTeam = () => subordinates().length > 0;
   const children = (id, pool) => pool.filter((p) => p.manager_id === id);
   const descendants = (id) => S.profiles.filter((p) => p.active && isUnder(p.id, id));
@@ -1048,7 +1090,6 @@ a { color: var(--green); }
     ck = ck || {}; let tot = 0, got = 0;
     for (const sec of ["research", "materials", "post"]) for (const [k] of CK[sec].items) { tot++; if (ck[sec]?.[k]) got++; }
     tot++; if ((ck.smart_objective || "").trim()) got++;
-    for (const [k] of SMART) { tot++; got += ck.smart?.[k] === "si" ? 1 : ck.smart?.[k] === "parcial" ? 0.5 : 0; }
     tot++; if (ck.signals) got++;
     return got / tot;
   }
@@ -1057,6 +1098,35 @@ a { color: var(--green); }
     if (pct == null) return null;
     const d = pct - expected;
     return d >= -0.1 ? "ok" : d >= -0.3 ? "warn" : "bad";
+  }
+
+  // Cierre YTD: suma de cierres semanales del año hasta la semana indicada del mes visible
+  function ytdOf(ownerId, weekNo) {
+    const year = S.month.slice(0, 4);
+    let total = 0;
+    for (const p of S.yearWeeks) {
+      if (p.owner_id !== ownerId || !p.month.startsWith(year) || p.month >= S.month) continue;
+      (p.plan_weeks || []).forEach((w) => (total += Number(w.closed_amount) || 0));
+    }
+    const cur = planOf(ownerId);
+    (cur?.plan_weeks || []).forEach((w) => { if (w.week_no <= weekNo) total += Number(w.closed_amount) || 0; });
+    return total;
+  }
+
+  function lockBanner(subj) {
+    if (subj.role !== "vendedor") return "";
+    const lockD = D.lockDate(S.month);
+    const lastDay = new Date(lockD.getFullYear(), lockD.getMonth(), 0);
+    const mes = D.MES[D.parse(S.month).getMonth()];
+    if (isLocked(subj.id)) {
+      return canOverrideLock()
+        ? `<div class="lock-note warn">${icon("lock", "sm")}<span><b>Mes cerrado para el vendedor</b> desde el 1 de ${D.MES[lockD.getMonth()]}. Puedes modificarlo porque eres ${S.me.is_admin ? "administrador" : ROLE[S.me.role].toLowerCase()}.</span></div>`
+        : `<div class="lock-note">${icon("lock", "sm")}<span><b>${mes[0].toUpperCase() + mes.slice(1)} está cerrado.</b> Solo un director o el administrador puede modificarlo.</span></div>`;
+    }
+    if (S.month < D.monthKey(today)) {
+      return `<div class="lock-note info">${icon("calendar", "sm")}<span>Hay tiempo hasta el <b>${lastDay.getDate()} de ${D.MES[lastDay.getMonth()]}</b> para completar los datos de ${mes}. Después el mes se cierra.</span></div>`;
+    }
+    return "";
   }
 
   function stats(ownerIds) {
@@ -1071,15 +1141,15 @@ a { color: var(--green); }
     });
     const done = tasks.filter(isDone).length;
     const visits = tasks.filter((t) => t.task_type === "visita");
+    const trainings = tasks.filter((t) => t.task_type === "capacitacion");
     const plans = ownerIds.map(planOf).filter(Boolean);
     const goal = plans.reduce((a, p) => a + (Number(p.goal_amount) || 0), 0);
-    let closed = 0, pipeline = 0, npsSum = 0, npsN = 0;
+    let closed = 0, pipeline = 0;
     for (const p of plans) {
       const ws = [...(p.plan_weeks || [])].sort((a, b) => a.week_no - b.week_no);
       closed += ws.reduce((a, w) => a + (Number(w.closed_amount) || 0), 0);
       const lastPipe = ws.filter((w) => w.pipeline != null && w.pipeline !== "").pop();
       pipeline += lastPipe ? Number(lastPipe.pipeline) : 0;
-      ws.forEach((w) => { if (w.nps != null && w.nps !== "") { npsSum += Number(w.nps); npsN++; } });
     }
     const monthStart = D.parse(S.month), monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
     const monthExpected = D.elapsedFraction(monthStart, monthEnd);
@@ -1090,7 +1160,8 @@ a { color: var(--green); }
       tasks, perWeek, cur, total: tasks.length, done, monthPct, monthExpected,
       visits: visits.length, visitsDone: visits.filter(isDone).length,
       goal, closed, goalPct: goal ? closed / goal : null, pipeline, coverage: goal ? pipeline / goal : null,
-      nps: npsN ? npsSum / npsN : null, openRisks,
+      trainings: trainings.length, trainingsDone: trainings.filter(isDone).length,
+      ytd: ownerIds.reduce((a, id) => a + ytdOf(id, 99), 0), openRisks,
       weekPace: cur ? pace(cur.pct, cur.expected) : null, monthPace: pace(monthPct, monthExpected),
     };
   }
@@ -1205,8 +1276,8 @@ a { color: var(--green); }
     if (S.by[S.me.id]) S.me = S.by[S.me.id];
   }
   async function loadMonth() {
-    const [tasks, plans] = await Promise.all([API.listTasks(S.month), API.listPlans(S.month)]);
-    S.tasks = tasks; S.plans = plans;
+    const [tasks, plans, yearWeeks] = await Promise.all([API.listTasks(S.month), API.listPlans(S.month), API.listYearWeeks(S.month.slice(0, 4))]);
+    S.tasks = tasks; S.plans = plans; S.yearWeeks = yearWeeks;
   }
   async function reloadAll() { await loadProfiles(); await loadMonth(); }
 
@@ -1264,6 +1335,52 @@ a { color: var(--green); }
   function afterRender() {
     const sel = $(".weeks .wk.sel");
     if (sel) sel.scrollIntoView({ block: "nearest", inline: "center" });
+    if (S.focusWeek) {
+      const { no, field } = S.focusWeek; S.focusWeek = null;
+      const el = $(`[data-week-field="${field}"][data-week="${no}"]`) || $(`[data-plan-field="${field}"]`);
+      if (el) { el.scrollIntoView({ block: "center" }); setTimeout(() => el.focus({ preventScroll: true }), 150); }
+    }
+  }
+
+  // Alerta de datos pendientes: meta del mes y pipeline / cierre de semanas ya terminadas
+  function missingData(subj) {
+    const plan = planOf(subj.id);
+    const isEmpty = (v) => v == null || v === "";
+    const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const missing = [];
+    // Solo se revisa desde la fecha de creación del usuario
+    const created = subj.created_at ? new Date(subj.created_at) : null;
+    const createdDay = created ? new Date(created.getFullYear(), created.getMonth(), created.getDate()) : null;
+    for (const w of D.weeksOfMonth(S.month)) {
+      if (w.end >= dayStart) continue; // la semana aún no termina
+      if (createdDay && w.end < createdDay) continue; // semana anterior a su creación
+      const row = (plan?.plan_weeks || []).find((x) => x.week_no === w.no) || {};
+      const fields = [];
+      if (isEmpty(row.pipeline)) fields.push("pipeline");
+      if (isEmpty(row.closed_amount)) fields.push("cierre semanal");
+      if (fields.length) missing.push({ w, fields });
+    }
+    const monthEnd = new Date(D.parse(S.month).getFullYear(), D.parse(S.month).getMonth() + 1, 0);
+    const noGoal = !Number(plan?.goal_amount) && S.month <= D.monthKey(today) && !(createdDay && monthEnd < createdDay);
+    return { missing, noGoal, count: missing.length + (noGoal ? 1 : 0) };
+  }
+
+  function dataAlert(subj) {
+    if (!canEdit(subj.id)) return "";
+    const { missing, noGoal, count } = missingData(subj);
+    if (!count) return "";
+    const mine = subj.id === S.me.id;
+    const who = mine ? "" : `${esc(firstName(subj.full_name))}: `;
+    const items = [];
+    if (noGoal) items.push(`<li>Falta la <b>meta de cierres</b> de ${D.MES[D.parse(S.month).getMonth()]}.</li>`);
+    missing.forEach(({ w, fields }) => items.push(`<li><b>Semana ${w.no}</b> (${D.rangeLabel(w)}): falta ${fields.join(" y ")}.</li>`));
+    const first = noGoal ? { no: 0, field: "goal_amount" } : { no: missing[0].w.no, field: missing[0].fields[0] === "pipeline" ? "pipeline" : "closed_amount" };
+    const title = mine ? "Te faltan datos por registrar" : `${who}datos pendientes por registrar`;
+    return `<div class="data-alert" role="status">
+      <div class="da-ico">${icon("alert")}</div>
+      <div class="grow" style="min-width:0"><div class="bold">${title}</div><ul>${items.slice(0, 4).join("")}${items.length > 4 ? `<li>y ${items.length - 4} más…</li>` : ""}</ul></div>
+      <button class="btn sm" data-act="fill-data" data-no="${first.no}" data-field="${first.field}" data-owner="${subj.id}">Completar</button>
+    </div>`;
   }
 
   const monthSwitch = () => `<div class="month-sw"><button data-act="month" data-d="-1" aria-label="Mes anterior">${icon("chevL", "sm")}</button>
@@ -1288,7 +1405,7 @@ a { color: var(--green); }
     const sortT = (a, b) => (isDone(a) - isDone(b)) || String(a.created_at).localeCompare(String(b.created_at));
     const isNow = S.month === D.monthKey(today) && cw.w.no === D.weekNoOf(today);
     const hello = mine ? `Hola, ${esc(firstName(S.me.full_name))}` : esc(subj.full_name);
-    const canAdd = canManage(subj.id);
+    const canAdd = canEdit(subj.id);
 
     const hero = `<div class="hero">
       <div class="hero-top">
@@ -1336,6 +1453,8 @@ a { color: var(--green); }
 
     return `<header class="topbar"><div class="grow"><h1>${hello}</h1><div class="sub">${mine ? "Tu avance de un vistazo" : ROLE[subj.role] + (subj.territory ? " · " + esc(subj.territory) : "")}</div></div>${monthSwitch()}</header>
       ${viewingBanner(subj, "home")}
+      ${lockBanner(subj)}
+      <div id="data-alert-wrap">${dataAlert(subj)}</div>
       <div class="cols">
         <div>
           ${hero}
@@ -1364,7 +1483,7 @@ a { color: var(--green); }
 
   function taskItem(t) {
     const done = isDone(t), prog = t.status === "en_progreso";
-    const canEdit = canManage(t.owner_id);
+    const editableT = canEdit(t.owner_id, t.month);
     const ty = TYPES[t.task_type] || TYPES.otro;
     const ck = t.task_type === "visita" ? checklistPct(t.checklist) : null;
     const by = t.created_by && t.created_by !== t.owner_id ? S.by[t.created_by] : null;
@@ -1375,7 +1494,7 @@ a { color: var(--green); }
     if (by) chips.push(`<span class="chip slate">Asignada por ${esc(firstName(by.full_name))}</span>`);
     if (t.due_date) chips.push(`<span class="chip">${icon("calendar", "sm")}${D.shortDate(t.due_date)}</span>`);
     return `<div class="task ${done ? "done" : ""}">
-      <button class="check ${done ? "on" : prog ? "half" : ""}" data-act="toggle" data-id="${t.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completada"}" ${canEdit ? "" : "disabled"}>${icon(prog && !done ? "minus" : "check", "sm")}</button>
+      <button class="check ${done ? "on" : prog ? "half" : ""}" data-act="toggle" data-id="${t.id}" aria-label="${done ? "Marcar pendiente" : "Marcar completada"}" ${editableT ? "" : "disabled"}>${icon(prog && !done ? "minus" : "check", "sm")}</button>
       <div class="t-body" data-act="edit-task" data-id="${t.id}">
         <div class="t-client">${icon(ty.i, "sm")}${esc(t.client || ty.l)}</div>
         <div class="t-title">${esc(t.title)}</div>
@@ -1387,7 +1506,7 @@ a { color: var(--green); }
   //  VISTA: Hoja de ruta mensual (Plantilla 2)
   // ---------------------------------------------------------------
   function viewPlan() {
-    const subj = subject(), mine = subj.id === S.me.id, editable = canManage(subj.id);
+    const subj = subject(), mine = subj.id === S.me.id, editable = canEdit(subj.id);
     const plan = planOf(subj.id);
     const st = stats(subj.id);
     const weeks = st.perWeek;
@@ -1413,10 +1532,11 @@ a { color: var(--green); }
       const open = S.openWeeks[x.w.no] ?? isNow;
       const p = pace(x.pct, x.expected);
       const visitsDone = ts.filter((t) => t.task_type === "visita" && isDone(t)).length;
+      const trainDone = ts.filter((t) => t.task_type === "capacitacion" && isDone(t)).length;
       return `<details class="week-acc" data-week-acc="${x.w.no}" ${open ? "open" : ""}>
         <summary><div class="wk-badge ${isNow ? "cur" : ""}">S${x.w.no}</div>
           <div class="grow"><div class="bold">Semana ${x.w.no} <span class="muted small" style="font-weight:600">· ${D.rangeLabel(x.w)}</span></div>
-          <div class="row" style="gap:8px;margin-top:3px">${x.total ? statusPill(p) : ""}<span class="xs muted">${x.done}/${x.total} tareas · ${visitsDone} visitas</span></div></div>
+          <div class="row" style="gap:8px;margin-top:3px">${x.total ? statusPill(p) : ""}<span class="xs muted">${x.done}/${x.total} tareas · ${visitsDone} visitas · ${trainDone} capac.</span></div></div>
           ${ring(x.pct, 44, 5, p ? PACE_COLOR[p] : "var(--green)")}<span class="chev">${icon("chevR")}</span></summary>
         <div class="wa-body">
           <div class="grid g2" style="margin-top:14px">
@@ -1430,13 +1550,10 @@ a { color: var(--green); }
               ${t.task_type === "visita" ? `<span class="chip ${checklistPct(t.checklist) >= 1 ? "green" : ""}">${pctTxt(checklistPct(t.checklist))}</span>` : `<span class="chip">${TYPES[t.task_type]?.l}</span>`}
             </div>`).join("")}</div>` : `<div class="small muted" style="padding:6px 2px">Sin clientes planificados.</div>`}
           <div class="section-title" style="margin-top:18px"><span>Indicadores de la semana</span></div>
-          <div class="ind-grid">
-            <label class="field"><span>Pipeline</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="pipeline" data-week="${x.w.no}" value="${w.pipeline ?? ""}" ${dis}></div></label>
-            <label class="field"><span>Cierres semana</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="closed_amount" data-week="${x.w.no}" value="${w.closed_amount ?? ""}" ${dis}></div></label>
-            <label class="field"><span>Cierre YTD</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="closed_ytd" data-week="${x.w.no}" value="${w.closed_ytd ?? ""}" ${dis}></div></label>
-            <label class="field"><span>NPS medido</span><input class="input num" inputmode="decimal" data-week-field="nps" data-week="${x.w.no}" value="${w.nps ?? ""}" ${dis}></label>
+          <div class="grid g2m">
+            <label class="field"><span>Pipeline (USD)</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="pipeline" data-week="${x.w.no}" value="${w.pipeline ?? ""}" ${dis}></div></label>
+            <label class="field"><span>Cierre semanal (USD)</span><div class="money"><input class="input num" inputmode="decimal" data-week-field="closed_amount" data-week="${x.w.no}" value="${w.closed_amount ?? ""}" ${dis}></div></label>
           </div>
-          <div class="xs muted" style="margin-top:8px"># Visitas se calcula solo: ${visitsDone} visita${visitsDone !== 1 ? "s" : ""} completada${visitsDone !== 1 ? "s" : ""}.</div>
         </div></details>`;
     }).join("");
 
@@ -1450,6 +1567,8 @@ a { color: var(--green); }
 
     return `<header class="topbar"><div class="grow"><h1>Hoja de ruta</h1><div class="sub">${mine ? "Planificación y seguimiento mensual" : esc(subj.full_name)}</div></div>${monthSwitch()}</header>
       ${viewingBanner(subj, "plan")}
+      ${lockBanner(subj)}
+      <div id="data-alert-wrap">${dataAlert(subj)}</div>
       <div class="cols">
         <div>${info}${kpis}
           <div class="section-title"><span>Semanas</span><span class="count">${weeks.length}</span></div>${weeksHtml}</div>
@@ -1463,10 +1582,10 @@ a { color: var(--green); }
   function planKpis(st) {
     const cov = st.coverage;
     return `<div class="grid g2m" style="margin-top:12px">
-      <div class="kpi"><div class="k-l">${icon("target", "sm")}Meta</div><div class="k-v num">${pctTxt(st.goalPct)}</div><div class="k-s num">${money(st.closed)} de ${money(st.goal)}</div>${bar(st.goalPct)}</div>
+      <div class="kpi"><div class="k-l">${icon("target", "sm")}Meta</div><div class="k-v num">${pctTxt(st.goalPct)}</div><div class="k-s num">${money(st.closed)} de ${money(st.goal)}</div>${bar(st.goalPct)}<div class="k-s num" style="margin-top:6px">Cierre YTD: <b style="color:var(--ink)">${money(st.ytd)}</b></div></div>
       <div class="kpi"><div class="k-l">${icon("trend", "sm")}Pipeline</div><div class="k-v num">${cov != null ? cov.toFixed(1) + "x" : "—"}</div><div class="k-s num">${money(st.pipeline)} · objetivo 3x</div>${bar(cov != null ? cov / 3 : 0, cov != null && cov < 3 ? "olive" : "")}</div>
       <div class="kpi"><div class="k-l">${icon("pin", "sm")}Visitas</div><div class="k-v num">${st.visitsDone}<span class="muted" style="font-size:15px">/${st.visits}</span></div><div class="k-s">completadas / planificadas</div>${bar(st.visits ? st.visitsDone / st.visits : 0)}</div>
-      <div class="kpi"><div class="k-l">${icon("smile", "sm")}NPS promedio</div><div class="k-v num">${st.nps != null ? Math.round(st.nps) : "—"}</div><div class="k-s">de las semanas medidas</div>${bar(st.nps != null ? (st.nps + 100) / 200 : 0)}</div>
+      <div class="kpi"><div class="k-l">${icon("cap", "sm")}Capacitaciones</div><div class="k-v num">${st.trainingsDone}<span class="muted" style="font-size:15px">/${st.trainings}</span></div><div class="k-s">completadas / planificadas</div>${bar(st.trainings ? st.trainingsDone / st.trainings : 0)}</div>
     </div>`;
   }
   function planChart(st, plan) {
@@ -1475,12 +1594,15 @@ a { color: var(--green); }
     const ref = st.goal ? st.goal / weeks.length : 0;
     const tips = weeks.map((x, i) => `Semana ${x.w.no} (${D.rangeLabel(x.w)}): ${money(vals[i])}`);
     return barChart(vals, weeks.map((x) => "S" + x.w.no), ref, tips) +
-      `<div class="row between xs muted" style="margin-top:6px"><span>Total del mes: <b class="num" style="color:var(--ink)">${money(st.closed)}</b></span><span>Meta: <b class="num" style="color:var(--ink)">${money(st.goal)}</b></span></div>`;
+      `<div class="row between xs muted" style="margin-top:6px"><span>Total del mes: <b class="num" style="color:var(--ink)">${money(st.closed)}</b></span><span>Meta: <b class="num" style="color:var(--ink)">${money(st.goal)}</b></span></div>
+      <div class="row between xs muted" style="margin-top:4px"><span>Cierre YTD ${D.parse(S.month).getFullYear()}: <b class="num" style="color:var(--ink)">${money(st.ytd)}</b></span></div>`;
   }
   function refreshPlanParts() {
     const subj = subject(); const st = stats(subj.id);
     const k = $("#plan-kpis"); if (k) k.innerHTML = planKpis(st);
     const c = $("#plan-chart"); if (c) c.innerHTML = planChart(st, planOf(subj.id));
+    const da = $("#data-alert-wrap"); if (da) da.innerHTML = dataAlert(subj);
+    document.querySelectorAll("[data-ytd]").forEach((el) => (el.textContent = money(ytdOf(subj.id, Number(el.dataset.ytd)))));
   }
 
   async function ensurePlanFor(ownerId) {
@@ -1503,7 +1625,7 @@ a { color: var(--green); }
         Object.assign(plan, row);
       } else {
         const f = el.dataset.weekField, no = Number(el.dataset.week);
-        const val = ["pipeline", "closed_amount", "closed_ytd", "nps"].includes(f) ? num(el.value) : el.value.trim();
+        const val = ["pipeline", "closed_amount"].includes(f) ? num(el.value) : el.value.trim();
         const row = await API.upsertWeek(plan.id, no, { [f]: val });
         plan.plan_weeks = plan.plan_weeks || [];
         const i = plan.plan_weeks.findIndex((w) => w.week_no === no);
@@ -1570,7 +1692,7 @@ a { color: var(--green); }
       <div class="grow" style="min-width:0">
         <div class="p-name ellipsis">${esc(p.full_name)}</div>
         <div class="p-role ellipsis">${ROLE[p.role]}${p.territory ? " · " + esc(p.territory) : ""}${isLead ? ` · equipo de ${n}` : ""}</div>
-        <div class="p-stats">${statusPill(s.weekPace)}<span class="xs muted num">Mes ${pctTxt(s.monthPct)} · Meta ${pctTxt(s.goalPct)}</span></div>
+        <div class="p-stats">${statusPill(s.weekPace)}${!isLead && p.role === "vendedor" && missingData(p).count ? `<span class="status bad">${icon("alert")}Datos pendientes</span>` : ""}<span class="xs muted num">Mes ${pctTxt(s.monthPct)} · Meta ${pctTxt(s.goalPct)}</span></div>
       </div>
       ${ring(s.cur?.pct, 50, 6, s.weekPace ? PACE_COLOR[s.weekPace] : "var(--green)")}
     </div>`;
@@ -1629,6 +1751,16 @@ a { color: var(--green); }
     const m = isNew ? { full_name: "", email: "", role: "vendedor", manager_id: "", territory: "", password: tempPassword(), is_admin: false, active: true }
       : { ...p, manager_id: p.manager_id || "" };
     let err = "";
+    const activeCard = () => {
+      const reports = S.profiles.filter((x) => x.manager_id === p.id && x.active).length;
+      return p.active
+        ? `<div class="card" style="margin-top:12px;box-shadow:none"><div class="row between wrap"><div class="grow"><div class="bold small">Usuario activo</div>
+            <div class="xs muted">Al inactivarlo no podrá ingresar y dejará de aparecer en los tableros. Su historial se conserva.${reports ? ` Tiene ${reports} persona${reports > 1 ? "s" : ""} a cargo.` : ""}</div></div>
+            <button class="btn sm danger" data-act="toggle-active">${icon("minus", "sm")}Inactivar</button></div></div>`
+        : `<div class="card" style="margin-top:12px;box-shadow:none;background:var(--brick-50)"><div class="row between wrap"><div class="grow"><div class="bold small" style="color:var(--brick)">Usuario inactivo</div>
+            <div class="xs muted">No puede ingresar ni aparece en los tableros. Su historial sigue disponible.</div></div>
+            <button class="btn sm soft" data-act="toggle-active">${icon("refresh", "sm")}Reactivar</button></div></div>`;
+    };
     openSheet({
       title: () => (isNew ? "Nuevo usuario" : "Editar usuario"),
       body: () => {
@@ -1647,9 +1779,11 @@ a { color: var(--green); }
           <div class="xs muted" style="margin-top:6px">Se le pedirá cambiarla en su primer ingreso.</div></label>`
         : `<div class="card" style="margin-top:16px;padding:6px 14px;box-shadow:none">
           <label class="switch"><span><span class="bold small">Administrador</span><br><span class="xs muted">Acceso a este centro de administración</span></span><input type="checkbox" data-bind="is_admin" ${m.is_admin ? "checked" : ""}></label>
-          <label class="switch" style="border-top:1px solid var(--line)"><span><span class="bold small">Usuario activo</span><br><span class="xs muted">Si se desactiva no podrá ingresar</span></span><input type="checkbox" data-bind="active" ${m.active ? "checked" : ""}></label></div>
+          </div>
+          ${activeCard()}
           <div class="grid g2m" style="margin-top:12px"><button class="btn ghost" data-act="reset-pass">${icon("key", "sm")}Restablecer contraseña</button>
-          <button class="btn danger" data-act="delete-user">${icon("trash", "sm")}Eliminar</button></div>`}
+          <button class="btn ghost" data-act="view-history">${icon("map", "sm")}Ver historial</button></div>
+          <button class="btn danger block" style="margin-top:10px" data-act="delete-user">${icon("trash", "sm")}Eliminar definitivamente</button>`}
         ${err ? `<div class="error-msg">${esc(err)}</div>` : ""}`;
       },
       foot: () => `<button class="btn ghost" data-act="close-sheet">Cancelar</button><button class="btn" data-act="save">${isNew ? "Crear usuario" : "Guardar"}</button>`,
@@ -1658,8 +1792,19 @@ a { color: var(--green); }
         set: (el) => { m[el.dataset.k] = el.dataset.v; SHEET.refresh(); },
         regen: () => { m.password = tempPassword(); SHEET.refresh(); },
         "reset-pass": () => openResetSheet(p),
+        "view-history": () => { closeSheet(); go("#/home/" + p.id); },
+        "toggle-active": async (el) => {
+          const next = !p.active;
+          const reports = S.profiles.filter((x) => x.manager_id === p.id && x.active).length;
+          const msg = next ? `¿Reactivar a ${p.full_name}? Podrá ingresar de nuevo y volverá a aparecer en los tableros.`
+            : `¿Inactivar a ${p.full_name}? No podrá ingresar y dejará de aparecer en los tableros de sus superiores. Su historial se conserva.${reports ? ` Tiene ${reports} persona${reports > 1 ? "s" : ""} a cargo: reasígnalas a otro jefe.` : ""}`;
+          if (!(await confirmBox(msg, next ? "Reactivar" : "Inactivar"))) return;
+          el.disabled = true;
+          try { await API.admin("set_active", { user_id: p.id, active: next }); await reloadAll(); closeSheet(); render(); toast(next ? "Usuario reactivado" : "Usuario inactivado"); }
+          catch (e) { el.disabled = false; toast(e.message, true); }
+        },
         "delete-user": async () => {
-          if (!(await confirmBox(`¿Eliminar a ${p.full_name}? Sus tareas y planes se borrarán y sus subordinados pasarán a su jefe.`))) return;
+          if (!(await confirmBox(`¿Eliminar definitivamente a ${p.full_name}? Se borran también sus tareas y planes, y sus subordinados pasan a su jefe. Si solo dejó la empresa, mejor inactívalo para conservar su historial.`))) return;
           try { await API.admin("delete", { user_id: p.id }); closeSheet(); await reloadAll(); render(); toast("Usuario eliminado"); } catch (e) { toast(e.message, true); }
         },
         save: async (el) => {
@@ -1673,7 +1818,6 @@ a { color: var(--green); }
               openCredentialsSheet(m.full_name, m.email, m.password, r);
             } else {
               await API.updateProfile(p.id, { full_name: m.full_name.trim(), role: m.role, manager_id: m.manager_id || null, territory: m.territory || null, is_admin: !!m.is_admin });
-              if (m.active !== p.active) await API.admin("set_active", { user_id: p.id, active: !!m.active });
               await reloadAll(); closeSheet(); render(); toast("Usuario actualizado");
             }
           } catch (e) { err = e.message; el.disabled = false; SHEET.refresh(); }
@@ -1751,11 +1895,11 @@ a { color: var(--green); }
     const isNew = !task;
     const subj = subject();
     const m = isNew ? {
-      owner_id: canManage(subj.id) ? subj.id : S.me.id, period: "semanal", month: S.month, week_no: S.week,
+      owner_id: canEdit(subj.id) ? subj.id : S.me.id, period: "semanal", month: S.month, week_no: S.week,
       task_type: "visita", status: "pendiente", client: "", title: "", objective: "", due_date: "", checklist: {}, ...defaults,
     } : JSON.parse(JSON.stringify(task));
-    const editable = canManage(m.owner_id);
-    const owners = S.profiles.filter((p) => p.active && canManage(p.id)).sort((a, b) => (a.id === S.me.id ? -1 : b.id === S.me.id ? 1 : a.full_name.localeCompare(b.full_name)));
+    const editable = canEdit(m.owner_id, m.month);
+    const owners = S.profiles.filter((p) => p.active && canEdit(p.id, m.month)).sort((a, b) => (a.id === S.me.id ? -1 : b.id === S.me.id ? 1 : a.full_name.localeCompare(b.full_name)));
     const canDelete = !isNew && editable && (task.created_by === S.me.id || task.owner_id !== S.me.id);
     const by = !isNew && task.created_by && task.created_by !== task.owner_id ? S.by[task.created_by] : null;
     let err = "";
@@ -1775,7 +1919,7 @@ a { color: var(--green); }
         ${m.period === "semanal" ? `<div class="field"><span>Semana de ${D.MES[D.parse(m.month).getMonth()]}</span><div class="chips">${weeks.map((w) => `<button class="chip-btn ${m.week_no === w.no ? "on" : ""}" data-act="set" data-k="week_no" data-v="${w.no}" data-num="1" ${ro}>S${w.no} <span class="muted xs">${D.rangeLabel(w)}</span></button>`).join("")}</div></div>` : ""}
         <div class="field"><span>Tipo</span><div class="chips">${Object.entries(TYPES).map(([k, v]) => `<button class="chip-btn ${m.task_type === k ? "on" : ""}" data-act="set" data-k="task_type" data-v="${k}" ${ro}>${icon(v.i, "sm")}${v.l}</button>`).join("")}</div></div>
         <label class="field"><span>Cliente</span><input class="input" data-bind="client" value="${esc(m.client || "")}" placeholder="Nombre del cliente o cuenta" ${ro}></label>
-        <label class="field"><span>Objetivo específico (SMART)</span><textarea class="textarea" data-bind="title" placeholder="Ej. Obtener orden de compra de la fase 1 antes del 30/09" ${ro}>${esc(m.title || "")}</textarea></label>
+        <label class="field"><span>Objetivo específico</span><textarea class="textarea" data-bind="title" placeholder="Ej. Obtener orden de compra de la fase 1 antes del 30/09" ${ro}>${esc(m.title || "")}</textarea></label>
         <label class="field"><span>Notas</span><textarea class="textarea" style="min-height:60px" data-bind="objective" placeholder="Detalle opcional" ${ro}>${esc(m.objective || "")}</textarea></label>
         <label class="field"><span>Fecha (opcional)</span><input class="input" type="date" data-bind="due_date" value="${esc(m.due_date || "")}" ${ro}></label>
         ${!isNew ? `<div class="field"><span>Estado</span><div class="seg">${Object.entries(STATUS).map(([k, l]) => `<button class="${m.status === k ? "on" : ""} ${k === "en_progreso" ? "olive" : ""}" data-act="set" data-k="status" data-v="${k}" ${ro}>${l}</button>`).join("")}</div></div>` : ""}
@@ -1829,22 +1973,19 @@ a { color: var(--green); }
     ["research", "materials", "post"].forEach((k) => (ck[k] = ck[k] || {}));
     ck.smart = ck.smart || {};
     ck.pain_points = ck.pain_points || ["", "", ""];
-    const editable = canManage(task.owner_id);
+    const editable = canEdit(task.owner_id, task.month);
     const ro = editable ? "" : "disabled";
     const secPct = (k) => CK[k].items.filter(([i]) => ck[k][i]).length / CK[k].items.length;
-    const smartDone = () => !!(ck.smart_objective || "").trim() && SMART.every(([k]) => ck.smart[k]);
-    const smartWarn = () => SMART.some(([k]) => ck.smart[k] === "parcial" || ck.smart[k] === "no");
+    const smartDone = () => !!(ck.smart_objective || "").trim();
     const items = (k) => CK[k].items.map(([i, l]) => `<div class="ck-item ${ck[k][i] ? "on" : ""}" data-act="${editable ? "ck" : ""}" data-s="${k}" data-i="${i}" role="checkbox" aria-checked="${!!ck[k][i]}" tabindex="0">
       <span class="box">${icon("check", "sm")}</span><span class="lbl">${l}</span></div>`).join("");
-    const segYN = (k) => `<div class="seg sm">${[["si", "Sí"], ["parcial", "Parcial"], ["no", "No"]].map(([v, l]) =>
-      `<button class="${ck.smart[k] === v ? "on" : ""} ${v === "no" ? "brick" : v === "parcial" ? "olive" : ""}" data-act="smart" data-k="${k}" data-v="${v}" ${ro}>${l}</button>`).join("")}</div>`;
 
     openSheet({
       wide: true,
       title: () => `Preparación de visita`,
       body: () => {
         const p = checklistPct(ck);
-        const steps = [["ck-research", "Investigación", secPct("research") === 1], ["ck-materials", "Materiales", secPct("materials") === 1], ["ck-smart", "Objetivo SMART", smartDone()], ["ck-during", "Durante", !!ck.signals], ["ck-post", "Post-visita", secPct("post") === 1]];
+        const steps = [["ck-research", "Investigación", secPct("research") === 1], ["ck-materials", "Materiales", secPct("materials") === 1], ["ck-smart", "Objetivo", smartDone()], ["ck-during", "Durante", !!ck.signals], ["ck-post", "Post-visita", secPct("post") === 1]];
         return `<div class="row between"><div class="grow"><div class="bold">${esc(task.client || "Cliente")}</div><div class="small muted ellipsis">${esc(task.title || "")}</div></div>${ring(p, 54, 6, p >= 1 ? "var(--green)" : "var(--olive)")}</div>
         <div class="ck-steps" style="margin-top:12px">${steps.map(([id, l, d]) => `<a href="#" data-act="scroll" data-to="${id}" class="${d ? "done" : ""}"><span class="dot"></span>${l}</a>`).join("")}</div>
 
@@ -1855,10 +1996,9 @@ a { color: var(--green); }
 
         <div class="ck-section" id="ck-materials"><h4>${icon("clip", "sm")}${CK.materials.t}</h4><div class="hint">${CK.materials.hint}</div>${items("materials")}</div>
 
-        <div class="ck-section" id="ck-smart"><h4>${icon("target", "sm")}Definición del objetivo (SMART)</h4><div class="hint">Un objetivo único y específico para la visita</div>
+        <div class="ck-section" id="ck-smart"><h4>${icon("target", "sm")}Definición del objetivo</h4><div class="hint">Un objetivo único y específico para la visita</div>
           <label class="field"><span>Objetivo específico de la visita</span><textarea class="textarea" data-ck="smart_objective" ${ro}>${esc(ck.smart_objective || "")}</textarea></label>
-          <div style="margin-top:8px">${SMART.map(([k, l]) => `<div class="smart-row"><span class="small bold">${l}</span>${segYN(k)}</div>`).join("")}</div>
-          ${smartWarn() ? `<div class="chip olive" style="margin-top:8px;white-space:normal">${icon("alert", "sm")}Si algún criterio es Parcial o No, ajusta la preparación.</div>` : ""}</div>
+</div>
 
         <div class="ck-section" id="ck-during"><h4>${icon("users", "sm")}Durante la visita (memoria)</h4>
           <label class="field"><span>Personas presentes</span><input class="input" data-ck="attendees" value="${esc(ck.attendees || "")}" ${ro}></label>
@@ -1877,7 +2017,6 @@ a { color: var(--green); }
       },
       actions: {
         ck: (el) => { ck[el.dataset.s][el.dataset.i] = !ck[el.dataset.s][el.dataset.i]; SHEET.refresh(); },
-        smart: (el) => { ck.smart[el.dataset.k] = el.dataset.v; SHEET.refresh(); },
         signals: (el) => { ck.signals = el.dataset.v; SHEET.refresh(); },
         scroll: (el) => { const t = SHEET.el.querySelector("#" + el.dataset.to); t && t.scrollIntoView({ behavior: "smooth", block: "start" }); },
         back: () => onDone(task.checklist || {}, null),
@@ -1892,7 +2031,7 @@ a { color: var(--green); }
   // ---------------------------------------------------------------
   function openRiskSheet(risk) {
     const subj = subject(), isNew = !risk;
-    const editable = canManage(subj.id);
+    const editable = canEdit(subj.id);
     const m = isNew ? { description: "", impact: "medio", mitigation: "", due_date: "", resolved: false } : { ...risk };
     let err = "";
     const ro = editable ? "" : "disabled";
@@ -1998,6 +2137,12 @@ a { color: var(--green); }
         if (t.status === "completada") toast("¡Bien hecho! Tarea completada");
       } catch (e) { t.status = prev; render(); toast(e.message, true); }
     },
+    "fill-data": (el) => {
+      const no = Number(el.dataset.no), owner = el.dataset.owner;
+      if (no) S.openWeeks[no] = true;
+      S.focusWeek = { no, field: el.dataset.field };
+      go("#/plan" + (owner === S.me.id ? "" : "/" + owner));
+    },
     "new-risk": () => openRiskSheet(null),
     "edit-risk": (el) => { const r = (planOf(subject().id)?.plan_risks || []).find((x) => x.id === el.dataset.id); r && openRiskSheet(r); },
     "team-mode": (el) => { S.teamMode = el.dataset.m; render(); },
@@ -2005,7 +2150,7 @@ a { color: var(--green); }
     "admin-filter": (el) => { S.adminFilter = el.dataset.f; render(); },
     "new-user": () => openUserSheet(null),
     "edit-user": (el) => { const p = S.by[el.dataset.id]; p && openUserSheet(p); },
-    logout: async () => { await API.signOut(); S.me = null; S.profiles = []; S.tasks = []; S.plans = []; location.hash = ""; renderLogin(); },
+    logout: async () => { await API.signOut(); S.me = null; S.month = D.monthKey(today); S.week = D.weekNoOf(today); S.profiles = []; S.tasks = []; S.plans = []; location.hash = ""; renderLogin(); },
     "reset-demo": async () => { if (!(await confirmBox("¿Reiniciar todos los datos de demostración?", "Reiniciar"))) return; API.resetDemo(); S.me = null; location.hash = ""; renderLogin(); },
     "demo-login": async (el) => { try { await API.signIn(el.dataset.email, ""); await afterLogin(); } catch (e) { renderLogin(e.message); } },
     "close-sheet": () => closeSheet(),
@@ -2087,6 +2232,12 @@ a { color: var(--green); }
   //  Arranque
   // ---------------------------------------------------------------
   (async function start() {
+    if (!API) {
+      app().innerHTML = `<div class="login-wrap"><div class="login-card"><div class="brand"><div class="brand-mark">${icon("alert")}</div><div>No se pudo conectar</div></div>
+        <p class="small" style="margin-top:16px">No cargó la librería de Supabase. Revisa tu conexión a internet; si estás en la red de la empresa, puede que esté bloqueado <b>cdn.jsdelivr.net</b>.</p>
+        <button class="btn block" style="margin-top:12px" onclick="location.reload()">Reintentar</button></div></div>`;
+      return;
+    }
     app().innerHTML = `<div class="spinner"></div>`;
     API.onSignedOut(() => { S.me = null; renderLogin(); });
     try {
