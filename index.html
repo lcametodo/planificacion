@@ -11,8 +11,8 @@
        ================================================================= -->
   <script>
     window.APP_CONFIG = {
-      SUPABASE_URL: https://iecfgpqnnsxmnmbxnfcp.supabase.co,   // solo la URL del proyecto, sin /rest/v1/
-      SUPABASE_ANON_KEY: sb_publishable_Mt2sdPIzEcfbKv15x4-JTQ_Tf6csjiH,   // clave "publishable" (NUNCA la secret / service_role)
+      SUPABASE_URL: "https://iecfgpqnnsxmnmbxnfcp.supabase.co",   // solo la URL del proyecto, sin /rest/v1/
+      SUPABASE_ANON_KEY: "sb_publishable_Mt2sdPIzEcfbKv15x4-JTQ_Tf6csjiH",   // clave "publishable" (NUNCA la secret / service_role)
       APP_NAME: "Ruta Comercial",
       CURRENCY_SYMBOL: "$",
     };
@@ -516,6 +516,14 @@ a { color: var(--green); }
 .data-alert .btn { flex: none; align-self: center; background: var(--brick); }
 @media (max-width: 520px) { .data-alert { flex-wrap: wrap; } .data-alert .btn { width: 100%; } }
 
+.net-strip { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; border: 0; font-size: 13px; line-height: 1.4; padding: 10px 14px; border-radius: 14px; margin: 12px 0 0; }
+.net-strip .icon { margin-top: 1px; flex: none; }
+.net-strip.off { background: var(--slate-50); color: var(--ink-2); } .net-strip.off .icon { color: var(--slate); }
+.net-strip.warn { background: var(--olive-50); color: var(--ink-2); cursor: pointer; } .net-strip.warn .icon { color: var(--olive); }
+.net-strip.sync { background: var(--green-50); color: var(--green); }
+.net-strip.sync .icon { animation: spin 1.2s linear infinite; }
+.net-strip.bad { background: var(--brick-50); color: var(--brick); cursor: pointer; }
+
   </style>
 </head>
 <body>
@@ -599,11 +607,18 @@ a { color: var(--green); }
   //  SUPABASE
   // -------------------------------------------------------------------
   function SupabaseApi() {
+    // fetch con tiempo límite: en redes inestables una petición colgada cuenta como "sin conexión"
+    const fetchT = (url, opts = {}) => {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 15000);
+      if (opts.signal) opts.signal.addEventListener("abort", () => ctl.abort());
+      return fetch(url, { ...opts, signal: ctl.signal }).finally(() => clearTimeout(t));
+    };
     const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true },
+      global: { fetch: fetchT },
     });
     let uid = null;
-    const ok = ({ data, error }) => { if (error) throw new Error(traducir(error.message)); return data; };
 
     function traducir(m) {
       if (/Invalid login credentials/i.test(m)) return "Correo o contraseña incorrectos";
@@ -612,75 +627,334 @@ a { color: var(--green); }
       if (/should be different/i.test(m)) return "La nueva contraseña debe ser diferente a la anterior";
       return m;
     }
+    const ok = ({ data, error }) => {
+      if (error) { const e = new Error(traducir(error.message || String(error))); e.code = error.code; e.raw = error.message; throw e; }
+      return data;
+    };
+    const isNet = (e) => !navigator.onLine || /failed to fetch|networkerror|network request|load failed|fetch|aborted|abort|timeout|ERR_/i.test(String(e?.raw || e?.message || e));
+    const isAuth = (e) => /jwt|token|not authenticated|unauthorized|401|refresh/i.test(String(e?.raw || e?.message || ""));
+    const needOnline = (what) => { if (!navigator.onLine) throw new Error(`Necesitas conexión a internet para ${what}.`); };
+    const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === "x" ? r : (r & 3) | 8).toString(16); }));
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+
+    // ---------------- Almacenamiento local (caché de lecturas + cola de cambios) ----------------
+    const ls = {
+      get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (_) { return null; } },
+      set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) { /* lleno o bloqueado */ } },
+    };
+    const cKey = () => "rc_cache_" + uid, qKey = () => "rc_outbox_" + uid, fKey = () => "rc_failed_" + uid;
+    let cache = { months: {}, years: {} }, outbox = [], failed = [];
+    function loadLocal() {
+      cache = ls.get(cKey()) || { months: {}, years: {} };
+      outbox = ls.get(qKey()) || [];
+      failed = ls.get(fKey()) || [];
+    }
+    const saveCache = () => ls.set(cKey(), cache);
+    const saveQueue = () => { ls.set(qKey(), outbox); ls.set(fKey(), failed); };
+
+    // ---------------- Estado de conexión para la interfaz ----------------
+    const listeners = new Set(), syncedCbs = new Set();
+    let syncing = false, authNeeded = false, offlineMode = false;
+    const status = () => ({ online: navigator.onLine && !offlineMode, pending: outbox.length, syncing, authNeeded, failed: failed.slice() });
+    const emit = () => listeners.forEach((cb) => { try { cb(status()); } catch (_) { /* noop */ } });
+
+    // Lectura con respaldo: si no hay red, usa lo último guardado en el dispositivo
+    async function cachedRead(get, put, fetcher, label) {
+      if (navigator.onLine) {
+        try { const d = await fetcher(); put(d); saveCache(); offlineMode = false; emit(); return clone(d); }
+        catch (e) { if (!isNet(e)) throw e; offlineMode = true; emit(); }
+      }
+      const c = get();
+      if (c === undefined || c === null) throw new Error(`Sin conexión y sin datos guardados ${label} en este dispositivo.`);
+      return clone(c);
+    }
+
+    // ---------------- Cola de cambios ----------------
+    const taskIndex = {};
+    const indexTasks = (list) => list.forEach((t) => (taskIndex[t.id] = t));
+
+    async function exec(op) {
+      switch (op.type) {
+        case "task_insert": {
+          try { return ok(await sb.from("tasks").insert(op.row).select().single()); }
+          catch (e) { if (e.code === "23505") return ok(await sb.from("tasks").select("*").eq("id", op.row.id).single()); throw e; }
+        }
+        case "task_update": {
+          const d = ok(await sb.from("tasks").update(op.patch).eq("id", op.id).select());
+          if (!d.length) throw new Error("No tienes permiso para esta acción o el mes ya está cerrado");
+          return d[0];
+        }
+        case "task_delete": {
+          const d = ok(await sb.from("tasks").delete().eq("id", op.id).select());
+          if (!d.length && op.strict) throw new Error("No tienes permiso para eliminar esta tarea");
+          return null;
+        }
+        case "plan_insert": {
+          ok(await sb.from("monthly_plans").upsert(op.row, { onConflict: "owner_id,month", ignoreDuplicates: true }));
+          const p = ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)").eq("owner_id", op.row.owner_id).eq("month", op.row.month).single());
+          if (p.id !== op.row.id) remapPlan(op.row.id, p.id);
+          return p;
+        }
+        case "plan_update":
+          return ok(await sb.from("monthly_plans").update(op.patch).eq("id", op.id).select().single());
+        case "week_upsert":
+          return ok(await sb.from("plan_weeks").upsert({ plan_id: op.plan_id, week_no: op.week_no, ...op.patch }, { onConflict: "plan_id,week_no" }).select().single());
+        case "risk_insert": {
+          try { return ok(await sb.from("plan_risks").insert(op.row).select().single()); }
+          catch (e) { if (e.code === "23505") return op.row; throw e; }
+        }
+        case "risk_update":
+          return ok(await sb.from("plan_risks").update(op.patch).eq("id", op.id).select().single());
+        case "risk_delete":
+          ok(await sb.from("plan_risks").delete().eq("id", op.id)); return null;
+      }
+      throw new Error("Operación desconocida");
+    }
+
+    // Si el plan ya existía en el servidor (creado por otra persona), usar su id
+    function remapPlan(from, to) {
+      outbox.forEach((o) => {
+        if (o.plan_id === from) o.plan_id = to;
+        if (o.row && o.row.plan_id === from) o.row.plan_id = to;
+        if (o.type === "plan_update" && o.id === from) o.id = to;
+      });
+      saveQueue();
+    }
+
+    // Refleja en la copia local lo que ya quedó guardado en el servidor
+    function applyToCache(op, res) {
+      const months = Object.values(cache.months || {});
+      const plansAll = () => months.flatMap((m) => m.plans || []);
+      if (op.type === "task_insert" || op.type === "task_update") {
+        if (!res) return;
+        months.forEach((m) => { if (m.tasks) m.tasks = m.tasks.filter((t) => t.id !== res.id); });
+        const m = cache.months[res.month]; if (m && m.tasks) m.tasks.push(res);
+      } else if (op.type === "task_delete") {
+        months.forEach((m) => { if (m.tasks) m.tasks = m.tasks.filter((t) => t.id !== op.id); });
+      } else if (op.type === "plan_insert" && res) {
+        const m = cache.months[res.month];
+        if (m && m.plans) { m.plans = m.plans.filter((p) => !(p.owner_id === res.owner_id && p.month === res.month)); m.plans.push(res); }
+      } else if (op.type === "plan_update" && res) {
+        plansAll().forEach((p) => { if (p.id === res.id) Object.assign(p, res); });
+      } else if (op.type === "week_upsert" && res) {
+        plansAll().forEach((p) => { if (p.id === res.plan_id) { p.plan_weeks = (p.plan_weeks || []).filter((w) => w.week_no !== res.week_no); p.plan_weeks.push(res); } });
+      } else if ((op.type === "risk_insert" || op.type === "risk_update") && res) {
+        plansAll().forEach((p) => { if (p.id === res.plan_id) { p.plan_risks = (p.plan_risks || []).filter((r) => r.id !== res.id); p.plan_risks.push(res); } });
+      } else if (op.type === "risk_delete") {
+        plansAll().forEach((p) => { p.plan_risks = (p.plan_risks || []).filter((r) => r.id !== op.id); });
+      }
+      saveCache();
+    }
+
+    async function mutate(op, optimistic) {
+      if (!outbox.length && navigator.onLine) {
+        try { const r = await exec(op); applyToCache(op, r); offlineMode = false; emit(); return r; }
+        catch (e) { if (!isNet(e)) throw e; offlineMode = true; }
+      }
+      op.qid = newId(); op.at = new Date().toISOString();
+      outbox.push(op); saveQueue(); emit();
+      setTimeout(sync, 500);
+      return optimistic;
+    }
+
+    async function sync() {
+      if (syncing || !outbox.length || !navigator.onLine || !uid) return;
+      syncing = true; emit();
+      let done = 0;
+      try {
+        await sb.auth.getSession();
+        while (outbox.length) {
+          const op = outbox[0];
+          try {
+            const r = await exec(op);
+            outbox.shift(); applyToCache(op, r); done++; authNeeded = false; offlineMode = false;
+          } catch (e) {
+            if (isNet(e)) { offlineMode = true; break; }
+            if (isAuth(e)) { authNeeded = true; break; }
+            failed.push({ type: op.type, label: describe(op), msg: e.message, at: op.at });
+            outbox.shift(); done++;
+          }
+          saveQueue(); emit();
+        }
+      } finally { syncing = false; emit(); }
+      if (done && !outbox.length) syncedCbs.forEach((cb) => cb(done));
+    }
+
+    function describe(op) {
+      const t = op.row || taskIndex[op.id] || {};
+      if (op.type.startsWith("task")) return `Tarea: ${t.client || t.title || "sin nombre"}`;
+      if (op.type.startsWith("risk")) return `Riesgo: ${op.row?.description || op.patch?.description || ""}`;
+      if (op.type === "week_upsert") return `Indicadores semana ${op.week_no}`;
+      return "Hoja de ruta del mes";
+    }
+
+    // Aplica los cambios pendientes sobre los datos leídos (para que se vean aunque no se hayan enviado)
+    function overlayTasks(list, month) {
+      for (const op of outbox) {
+        if (op.type === "task_insert" && op.row.month === month) {
+          const i = list.findIndex((t) => t.id === op.row.id);
+          const row = { checklist: {}, created_by: uid, created_at: op.at, ...op.row, completed_at: op.row.status === "completada" ? op.at : null };
+          if (i >= 0) list[i] = { ...list[i], ...row }; else list.push(row);
+        } else if (op.type === "task_update") {
+          const i = list.findIndex((t) => t.id === op.id);
+          if (i >= 0) {
+            list[i] = { ...list[i], ...op.patch };
+            if (op.patch.month && op.patch.month !== month) list.splice(i, 1);
+          } else if (op.patch.month === month && taskIndex[op.id]) list.push({ ...taskIndex[op.id], ...op.patch });
+        } else if (op.type === "task_delete") {
+          const i = list.findIndex((t) => t.id === op.id); if (i >= 0) list.splice(i, 1);
+        }
+      }
+      indexTasks(list);
+      return list;
+    }
+    function overlayPlans(list, month) {
+      for (const op of outbox) {
+        if (op.type === "plan_insert" && op.row.month === month && !list.some((p) => p.id === op.row.id || (p.owner_id === op.row.owner_id && p.month === month)))
+          list.push({ ...op.row, plan_weeks: [], plan_risks: [] });
+        const plan = (id) => list.find((p) => p.id === id);
+        if (op.type === "plan_update" && plan(op.id)) Object.assign(plan(op.id), op.patch);
+        if (op.type === "week_upsert" && plan(op.plan_id)) {
+          const p = plan(op.plan_id); p.plan_weeks = p.plan_weeks || [];
+          const w = p.plan_weeks.find((x) => x.week_no === op.week_no);
+          if (w) Object.assign(w, op.patch); else p.plan_weeks.push({ plan_id: op.plan_id, week_no: op.week_no, ...op.patch });
+        }
+        if (op.type === "risk_insert" && plan(op.row.plan_id)) {
+          const p = plan(op.row.plan_id); p.plan_risks = (p.plan_risks || []).filter((r) => r.id !== op.row.id); p.plan_risks.push({ ...op.row });
+        }
+        if (op.type === "risk_update" || op.type === "risk_delete") {
+          for (const p of list) {
+            const i = (p.plan_risks || []).findIndex((r) => r.id === op.id);
+            if (i >= 0) { if (op.type === "risk_delete") p.plan_risks.splice(i, 1); else Object.assign(p.plan_risks[i], op.patch); }
+          }
+        }
+      }
+      return list;
+    }
+
+    // Reintentos automáticos
+    window.addEventListener("online", () => { offlineMode = false; emit(); sync(); });
+    window.addEventListener("offline", emit);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") sync(); });
+    setInterval(sync, 30000);
+
+    // Usuario de la última sesión guardada (para abrir la app sin señal)
+    function storedUserId() {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (/^sb-.+-auth-token$/.test(k)) { const v = JSON.parse(localStorage.getItem(k)); return v?.user?.id || v?.currentSession?.user?.id || null; }
+        }
+      } catch (_) { /* noop */ }
+      return null;
+    }
 
     return {
       mode: "supabase",
+      onStatus(cb) { listeners.add(cb); cb(status()); },
+      onSynced(cb) { syncedCbs.add(cb); },
+      status,
+      syncNow: () => sync(),
+      clearFailed() { failed = []; saveQueue(); emit(); },
       async init() {
-        const { data } = await sb.auth.getSession();
-        uid = data.session?.user?.id || null;
+        let s = null;
+        try { const { data } = await sb.auth.getSession(); s = data.session; } catch (_) { /* sin red */ }
+        uid = s?.user?.id || null;
+        if (!uid) { const stored = storedUserId(); if (stored) { uid = stored; offlineMode = !navigator.onLine; } }
+        if (uid) { loadLocal(); emit(); setTimeout(sync, 1000); }
         return uid;
       },
       onSignedOut(cb) {
         sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") cb(); });
       },
       async signIn(email, password) {
+        needOnline("iniciar sesión");
         const d = ok(await sb.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }));
-        uid = d.user.id; return uid;
+        uid = d.user.id; authNeeded = false; loadLocal(); emit(); setTimeout(sync, 500); return uid;
       },
-      async signOut() { await sb.auth.signOut(); uid = null; },
+      async signOut() {
+        try { await sb.auth.signOut({ scope: navigator.onLine ? "global" : "local" }); } catch (_) { try { await sb.auth.signOut({ scope: "local" }); } catch (__) { /* noop */ } }
+        uid = null; outbox = []; failed = []; emit();
+      },
       async changePassword(password) {
+        needOnline("cambiar la contraseña");
         ok(await sb.auth.updateUser({ password }));
         ok(await sb.rpc("clear_must_change_password"));
+        if (cache.me) { cache.me.must_change_password = false; saveCache(); }
       },
       async getMe() {
-        return ok(await sb.from("profiles").select("*").eq("id", uid).single());
+        return cachedRead(() => cache.me, (d) => (cache.me = d), async () => ok(await sb.from("profiles").select("*").eq("id", uid).single()), "de tu usuario");
       },
       async listProfiles() {
-        return ok(await sb.from("profiles").select("*").order("full_name"));
+        return cachedRead(() => cache.profiles, (d) => (cache.profiles = d), async () => ok(await sb.from("profiles").select("*").order("full_name")), "del equipo");
       },
       async listTasks(month) {
-        return ok(await sb.from("tasks").select("*").eq("month", month).order("created_at"));
+        const m = (cache.months[month] = cache.months[month] || {});
+        const list = await cachedRead(() => m.tasks, (d) => (m.tasks = d), async () => ok(await sb.from("tasks").select("*").eq("month", month).order("created_at")), "de este mes");
+        return overlayTasks(list, month);
+      },
+      async listPlans(month) {
+        const m = (cache.months[month] = cache.months[month] || {});
+        const list = await cachedRead(() => m.plans, (d) => (m.plans = d), async () => ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)").eq("month", month)), "de este mes");
+        return overlayPlans(list, month);
+      },
+      async listYearWeeks(year) {
+        try {
+          return await cachedRead(() => cache.years[year], (d) => (cache.years[year] = d), async () => ok(await sb.from("monthly_plans").select("owner_id, month, plan_weeks(week_no, closed_amount)")
+            .gte("month", `${year}-01-01`).lte("month", `${year}-12-01`)), "del año");
+        } catch (e) { if (/Sin conexión/.test(e.message)) return []; throw e; }
       },
       async saveTask(t) {
         const cols = ["owner_id", "period", "month", "week_no", "task_type", "client", "title", "objective", "due_date", "status", "checklist"];
         const row = {}; cols.forEach((c) => { if (c in t) row[c] = t[c] === "" ? null : t[c]; });
-        if (t.id) return ok(await sb.from("tasks").update(row).eq("id", t.id).select().single());
-        return ok(await sb.from("tasks").insert(row).select().single());
+        if (row.period === "mensual") row.week_no = null;
+        const now = new Date().toISOString();
+        if (t.id) {
+          const prev = taskIndex[t.id] || {};
+          const optimistic = { ...prev, ...row, id: t.id, updated_at: now };
+          if (row.status === "completada" && prev.status !== "completada") optimistic.completed_at = now;
+          if (row.status && row.status !== "completada") optimistic.completed_at = null;
+          const r = await mutate({ type: "task_update", id: t.id, patch: row }, optimistic);
+          taskIndex[t.id] = r; return r;
+        }
+        row.id = newId();
+        const optimistic = { checklist: {}, ...row, created_by: uid, created_at: now, updated_at: now, completed_at: row.status === "completada" ? now : null };
+        const r = await mutate({ type: "task_insert", row }, optimistic);
+        taskIndex[r.id] = r; return r;
       },
       async deleteTask(id) {
-        const d = ok(await sb.from("tasks").delete().eq("id", id).select());
-        if (!d.length) throw new Error("No tienes permiso para eliminar esta tarea");
-      },
-      async listPlans(month) {
-        return ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)").eq("month", month));
-      },
-      async listYearWeeks(year) {
-        return ok(await sb.from("monthly_plans").select("owner_id, month, plan_weeks(week_no, closed_amount)")
-          .gte("month", `${year}-01-01`).lte("month", `${year}-12-01`));
+        await mutate({ type: "task_delete", id, strict: true }, null);
+        delete taskIndex[id];
       },
       async ensurePlan(ownerId, month) {
-        const found = ok(await sb.from("monthly_plans").select("*, plan_weeks(*), plan_risks(*)")
-          .eq("owner_id", ownerId).eq("month", month).maybeSingle());
-        if (found) return found;
-        const created = ok(await sb.from("monthly_plans").insert({ owner_id: ownerId, month }).select().single());
-        return { ...created, plan_weeks: [], plan_risks: [] };
+        try {
+          const plans = await this.listPlans(month);
+          const found = plans.find((p) => p.owner_id === ownerId);
+          if (found) return found;
+        } catch (e) { if (!/Sin conexión/.test(e.message)) throw e; }
+        const row = { id: newId(), owner_id: ownerId, month, goal_amount: 0 };
+        const r = await mutate({ type: "plan_insert", row }, { ...row, territory: null, plan_weeks: [], plan_risks: [] });
+        return { plan_weeks: [], plan_risks: [], ...r };
       },
       async updatePlan(id, patch) {
-        return ok(await sb.from("monthly_plans").update(patch).eq("id", id).select().single());
+        return mutate({ type: "plan_update", id, patch }, { id, ...patch });
       },
       async upsertWeek(planId, weekNo, patch) {
-        return ok(await sb.from("plan_weeks").upsert({ plan_id: planId, week_no: weekNo, ...patch }, { onConflict: "plan_id,week_no" }).select().single());
+        return mutate({ type: "week_upsert", plan_id: planId, week_no: weekNo, patch }, { plan_id: planId, week_no: weekNo, ...patch });
       },
       async saveRisk(r) {
         const row = { plan_id: r.plan_id, description: r.description, impact: r.impact, mitigation: r.mitigation || null, due_date: r.due_date || null, resolved: !!r.resolved };
-        if (r.id) return ok(await sb.from("plan_risks").update(row).eq("id", r.id).select().single());
-        return ok(await sb.from("plan_risks").insert(row).select().single());
+        if (r.id) return mutate({ type: "risk_update", id: r.id, patch: row }, { ...r, ...row });
+        row.id = newId();
+        return mutate({ type: "risk_insert", row }, { ...row, created_by: uid, created_at: new Date().toISOString() });
       },
-      async deleteRisk(id) { ok(await sb.from("plan_risks").delete().eq("id", id)); },
+      async deleteRisk(id) { await mutate({ type: "risk_delete", id }, null); },
       async updateProfile(id, patch) {
+        needOnline("administrar usuarios");
         return ok(await sb.from("profiles").update(patch).eq("id", id).select().single());
       },
       async admin(action, payload) {
+        needOnline("administrar usuarios");
         const { data, error } = await sb.functions.invoke("admin-users", { body: { action, ...payload } });
         if (error) {
           let msg = error.message;
@@ -735,6 +1009,11 @@ a { color: var(--green); }
 
     return {
       mode: "demo",
+      onStatus(cb) { cb({ online: true, pending: 0, syncing: false, authNeeded: false, failed: [] }); },
+      onSynced() {},
+      status: () => ({ online: true, pending: 0, syncing: false, authNeeded: false, failed: [] }),
+      syncNow() {},
+      clearFailed() {},
       async init() { load(); return uid; },
       onSignedOut() {},
       demoUsers() { return clone(db.profiles.filter((p) => p.active)); },
@@ -1287,7 +1566,7 @@ a { color: var(--green); }
     S.week = isCur ? D.weekNoOf(today) : 1;
     S.openWeeks = {};
     renderLoading();
-    try { await loadMonth(); } catch (e) { toast(e.message, true); }
+    try { await loadMonth(); } catch (e) { S.tasks = []; S.plans = []; S.yearWeeks = []; toast(e.message, true); }
     render();
   }
 
@@ -1327,12 +1606,13 @@ a { color: var(--green); }
         <div class="nav-foot"><div class="row">${avatar(S.me)}<div class="grow"><div class="bold small ellipsis">${esc(S.me.full_name)}</div><div class="xs muted">${ROLE[S.me.role]}${S.me.is_admin ? " · Admin" : ""}</div></div></div>
         ${API.mode === "demo" ? `<div class="chip olive" style="margin-top:10px">Modo demo</div>` : ""}</div>
       </nav>
-      <main class="main"><div class="page" id="view">${view}</div></main>
+      <main class="main"><div class="page"><div id="net-slot"></div><div id="view">${view}</div></div></main>
     </div>`;
     afterRender();
   }
 
   function afterRender() {
+    renderNet();
     const sel = $(".weeks .wk.sel");
     if (sel) sel.scrollIntoView({ block: "nearest", inline: "center" });
     if (S.focusWeek) {
@@ -2080,6 +2360,7 @@ a { color: var(--green); }
       <form id="login-form" style="margin-top:20px">
         <label class="field"><span>Correo</span><input class="input" type="email" name="email" autocomplete="username" required placeholder="nombre@legrand.com"></label>
         <label class="field"><span>Contraseña</span><input class="input" type="password" name="password" autocomplete="current-password" ${demo ? "" : "required"} placeholder="${demo ? "(no se requiere en demo)" : "••••••••"}"></label>
+        ${!demo && !navigator.onLine ? `<div class="net-strip off" style="margin:12px 0 0">${icon("alert", "sm")}<span>Sin conexión. Para iniciar sesión necesitas internet; después la app funciona aunque se caiga la señal.</span></div>` : ""}
         <div class="error-msg ${msg ? "" : "hidden"}" id="login-err">${esc(msg)}</div>
         <button class="btn block" style="margin-top:18px">Ingresar</button>
       </form>
@@ -2111,6 +2392,10 @@ a { color: var(--green); }
     parseHash();
     await reloadAll();
     render();
+    // Deja guardados en el dispositivo el mes anterior y el siguiente, por si se pierde la señal
+    if (API.mode === "supabase") setTimeout(() => {
+      [-1, 1].forEach((d) => { const m = D.addMonths(D.monthKey(today), d); API.listTasks(m).catch(() => {}); API.listPlans(m).catch(() => {}); });
+    }, 3000);
   }
 
   // ---------------------------------------------------------------
@@ -2143,6 +2428,8 @@ a { color: var(--green); }
       S.focusWeek = { no, field: el.dataset.field };
       go("#/plan" + (owner === S.me.id ? "" : "/" + owner));
     },
+    "net-sync": () => API.syncNow(),
+    "net-failed": () => openFailedSheet(),
     "new-risk": () => openRiskSheet(null),
     "edit-risk": (el) => { const r = (planOf(subject().id)?.plan_risks || []).find((x) => x.id === el.dataset.id); r && openRiskSheet(r); },
     "team-mode": (el) => { S.teamMode = el.dataset.m; render(); },
@@ -2150,7 +2437,10 @@ a { color: var(--green); }
     "admin-filter": (el) => { S.adminFilter = el.dataset.f; render(); },
     "new-user": () => openUserSheet(null),
     "edit-user": (el) => { const p = S.by[el.dataset.id]; p && openUserSheet(p); },
-    logout: async () => { await API.signOut(); S.me = null; S.month = D.monthKey(today); S.week = D.weekNoOf(today); S.profiles = []; S.tasks = []; S.plans = []; location.hash = ""; renderLogin(); },
+    logout: async () => {
+      const st = API.status();
+      if (st.pending && !(await confirmBox(`Tienes ${st.pending} cambio${st.pending > 1 ? "s" : ""} sin enviar. Quedan guardados en este dispositivo y se enviarán cuando vuelvas a entrar con tu usuario. ¿Cerrar sesión?`, "Cerrar sesión"))) return;
+      await API.signOut(); S.me = null; S.month = D.monthKey(today); S.week = D.weekNoOf(today); S.profiles = []; S.tasks = []; S.plans = []; location.hash = ""; renderLogin(); },
     "reset-demo": async () => { if (!(await confirmBox("¿Reiniciar todos los datos de demostración?", "Reiniciar"))) return; API.resetDemo(); S.me = null; location.hash = ""; renderLogin(); },
     "demo-login": async (el) => { try { await API.signIn(el.dataset.email, ""); await afterLogin(); } catch (e) { renderLogin(e.message); } },
     "close-sheet": () => closeSheet(),
@@ -2229,6 +2519,40 @@ a { color: var(--green); }
   });
 
   // ---------------------------------------------------------------
+  //  Estado de conexión
+  // ---------------------------------------------------------------
+  let lastNet = null;
+  function renderNet(st) {
+    lastNet = st || lastNet;
+    const slot = $("#net-slot");
+    if (!slot || !lastNet || !S.me) return;
+    const n = lastNet.pending, pl = (k) => `${k} cambio${k > 1 ? "s" : ""}`;
+    let html = "";
+    if (lastNet.failed.length) {
+      html = `<button class="net-strip bad" data-act="net-failed">${icon("alert", "sm")}<span><b>${pl(lastNet.failed.length)} no se pudo guardar.</b> Toca para ver el detalle.</span></button>`;
+    } else if (lastNet.authNeeded && n) {
+      html = `<button class="net-strip bad" data-act="logout">${icon("key", "sm")}<span>Tu sesión venció. <b>Vuelve a iniciar sesión</b> para enviar ${pl(n)} guardado${n > 1 ? "s" : ""} en este dispositivo.</span></button>`;
+    } else if (lastNet.syncing && n) {
+      html = `<div class="net-strip sync">${icon("refresh", "sm")}<span>Enviando ${pl(n)} a la nube…</span></div>`;
+    } else if (!lastNet.online) {
+      html = `<div class="net-strip off">${icon("alert", "sm")}<span><b>Sin conexión.</b> ${n ? `${pl(n)} guardado${n > 1 ? "s" : ""} en este dispositivo; se enviarán al volver la señal.` : "Puedes seguir trabajando; los cambios se guardan en el dispositivo."}</span></div>`;
+    } else if (n) {
+      html = `<button class="net-strip warn" data-act="net-sync">${icon("refresh", "sm")}<span>${pl(n)} pendiente${n > 1 ? "s" : ""} de enviar. <b>Reintentar</b></span></button>`;
+    }
+    slot.innerHTML = html;
+  }
+  function openFailedSheet() {
+    const st = API.status();
+    openSheet({
+      title: () => "Cambios no guardados",
+      body: () => `<div class="small muted" style="margin-bottom:12px">Estos cambios se hicieron sin conexión, pero el servidor los rechazó al enviarlos (por ejemplo, porque el mes ya se cerró o no tienes permiso). Revísalos y vuelve a registrarlos si hace falta.</div>
+        <div class="list-card">${st.failed.map((f) => `<div class="user-row" style="cursor:default"><div class="grow"><div class="bold small">${esc(f.label)}</div><div class="xs muted">${esc(f.msg)}</div></div></div>`).join("")}</div>`,
+      foot: () => `<button class="btn" data-act="net-clear">Entendido</button>`,
+      actions: { "net-clear": () => { API.clearFailed(); closeSheet(); } },
+    });
+  }
+
+  // ---------------------------------------------------------------
   //  Arranque
   // ---------------------------------------------------------------
   (async function start() {
@@ -2240,6 +2564,16 @@ a { color: var(--green); }
     }
     app().innerHTML = `<div class="spinner"></div>`;
     API.onSignedOut(() => { S.me = null; renderLogin(); });
+    API.onStatus(renderNet);
+    API.onSynced(async (n) => {
+      toast(`${n} cambio${n > 1 ? "s" : ""} guardado${n > 1 ? "s" : ""} en la nube`);
+      if (!S.me) return;
+      try { await reloadAll(); if (!SHEET) render(); } catch (_) { /* se reintenta en la próxima carga */ }
+    });
+    // Permite abrir la app sin señal (necesita el archivo sw.js junto a index.html)
+    if ("serviceWorker" in navigator && /^https?:/.test(location.protocol)) {
+      navigator.serviceWorker.register("sw.js").catch(() => { /* sin sw.js: la app funciona, pero no abre sin internet */ });
+    }
     try {
       const uid = await API.init();
       if (!uid) return renderLogin();
